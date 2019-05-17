@@ -17,9 +17,14 @@ def ListMake() -> List {
 def ListAdd(l:List, content:int) -> void {
 	n := new Node;
 	n.content = content;
-	#if(l.last != null){
-	l.last.next = n;
-	#}
+	if(l.last != null){
+		l.last.next = n;
+	}
+
+	if(l.length == 0){
+		l.start = n;
+	}
+
 	n.prev = l.last;
 	l.last = n;
 	l.length += 1;
@@ -40,6 +45,6 @@ def main(args:[string]) -> void {
 	ListAdd(l, 1);
 	l:Add(2);
 	l:Add(3);
-	e := l:At(0);
-	#print(e);
+	e := l:At(1);
+	print(e);
 }

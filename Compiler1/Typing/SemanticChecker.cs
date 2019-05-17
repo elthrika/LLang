@@ -17,7 +17,10 @@ namespace Compiler1
 
         public int Check(ASTNode root)
         {
-            TypeChecker tc = new TypeChecker(this);
+            var builtins = new Scope<TypeSymbol>();
+            builtins.PutInScope("print", TypeSymbol.FUNCTION_SYMBOL("print", TypeSymbol.VOID_SYMBOL, new List<TypeSymbol>() { TypeSymbol.INT_SYMBOL }));
+
+            TypeChecker tc = new TypeChecker(this, builtins);
             tc.Visit(root);
 
             MainChecker mc = new MainChecker();
@@ -46,11 +49,12 @@ namespace Compiler1
         {
             SemanticChecker semanticChecker;
 
-            Scope<TypeSymbol> varTypes = new Scope<TypeSymbol>();
+            Scope<TypeSymbol> varTypes;
             TypeSymbol currentFunction = null;
 
-            public TypeChecker(SemanticChecker sc)
+            public TypeChecker(SemanticChecker sc, Scope<TypeSymbol> imports = null)
             {
+                varTypes = new Scope<TypeSymbol>(imports);
                 semanticChecker = sc;
             }
 

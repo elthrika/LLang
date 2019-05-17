@@ -40,12 +40,34 @@ namespace Compiler1
 
     public struct SourceLoc
     {
-        public int Col;
-        public int Row;
+        public readonly int Col;
+        public readonly int Row;
         //string file;
         public SourceLoc(int r, int c)
         {
             Col = c; Row = r;
+        }
+
+        public override string ToString()
+        {
+            return $"[{Row}, {Col}]";
+        }
+
+        public override bool Equals(object obj)
+        {
+            if(obj is SourceLoc || obj is string)
+            {
+                return obj.ToString() == ToString();
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            var hashCode = 973646036;
+            hashCode = hashCode * -1521134295 + Col.GetHashCode();
+            hashCode = hashCode * -1521134295 + Row.GetHashCode();
+            return hashCode;
         }
     }
 

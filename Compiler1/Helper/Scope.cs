@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,13 +7,23 @@ using System.Threading.Tasks;
 
 namespace Compiler1
 {
-    public class Scope<T>
+    public class Scope<T> : IDictionary<string, T>
     {
 
         Scope<T> parent = null;
         List<Scope<T>> children = null;
 
         Dictionary<string, T> values = new Dictionary<string, T>();
+
+        public ICollection<string> Keys => values.Keys;
+
+        public ICollection<T> Values => values.Values;
+
+        public int Count => values.Count;
+
+        public bool IsReadOnly => false;
+
+        public T this[string key] { get => values[key]; set => values[key] = value; }
 
         public Scope<T> GoUp()
         {
@@ -70,5 +81,59 @@ namespace Compiler1
             return rval;
         }
 
+        public bool ContainsKey(string key)
+        {
+            return values.ContainsKey(key);
+        }
+
+        public void Add(string key, T value)
+        {
+            PutInScope(key, value);
+        }
+
+        public bool Remove(string key)
+        {
+            return values.Remove(key);
+        }
+
+        public bool TryGetValue(string key, out T value)
+        {
+            return values.TryGetValue(key, out value);
+        }
+
+        public void Add(KeyValuePair<string, T> item)
+        {
+            PutInScope(item.Key, item.Value);
+        }
+
+        public void Clear()
+        {
+            values.Clear();
+        }
+
+        public bool Contains(KeyValuePair<string, T> item)
+        {
+            return values.Contains(item);
+        }
+
+        public void CopyTo(KeyValuePair<string, T>[] array, int arrayIndex)
+        {
+            ;
+        }
+
+        public bool Remove(KeyValuePair<string, T> item)
+        {
+            return values.Remove(item.Key);
+        }
+
+        public IEnumerator<KeyValuePair<string, T>> GetEnumerator()
+        {
+            return values.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }

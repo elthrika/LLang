@@ -12,12 +12,30 @@ namespace Compiler1
         Scope<LData> globals;
         Scope<LData> current;
 
+        Dictionary<string, Func<ICollection<LData>, LData>> builtins;
+
         public Interpreter(ASTNode root)
         {
             Root = root;
             Functions = new Dictionary<string, FunDefNode>();
             Types = new Dictionary<string, TypeSymbol>();
             globals = new Scope<LData>();
+
+            SetupBuiltins();
+        }
+
+        void SetupBuiltins()
+        {
+            builtins = new Dictionary<string, Func<ICollection<LData>, LData>>();
+
+            builtins["print"] = par =>
+            {
+                foreach (var item in par)
+                {
+                    Console.WriteLine(item.Stringify());
+                }
+                return null;
+            };
         }
 
         public void Run()
@@ -36,10 +54,12 @@ namespace Compiler1
         
 
 
-        public LData CallFunction(string name, ICollection<LData> paramters)
+        public LData CallFunction(string name, ICollection<LData> parameters)
         {
+            if (builtins.ContainsKey(name)) return builtins[name](parameters);
+
             current = globals.GoDown();
-            current.PutAllInScope(Functions[name].args, paramters);
+            current.PutAllInScope(Functions[name].args, parameters);
             var res = new InterpreterVisitor(this, current).Visit(Functions[name]);
             current = current.GoUp();
             return res;
@@ -67,6 +87,7 @@ namespace Compiler1
 
             public override LData Visit(ASTNode n)
             {
+                //Console.WriteLine(n.sourceLoc.ToString());
                 var val = base.Visit(n);
                 if (RetVal != null) return RetVal;
                 return val;
@@ -85,8 +106,7 @@ namespace Compiler1
                 LData lhs = Visit(n.lhs);
                 LData rhs = Visit(n.rhs);
 
-                //lhs.SetValue(rhs.GetValue());
-                lhs = rhs;
+                lhs.SetValue(rhs);
 
                 return lhs;
             }
@@ -413,18 +433,19 @@ namespace Compiler1
 
             public override LData VisitNewStructNode(NewStructNode n)
             {
-                var struc = new LStruct(n.Type.Fields);
+                var struc = new LStruct(n.Type.Fields, n.Type);
                 return struc;
             }
 
             public override LData VisitNullNode(NullNode n)
             {
-                return new LNull();
+                return LNull.NULL;
             }
 
             public override LData VisitReturnNode(ReturnNode n)
             {
                 RetVal = Visit(n.ret);
+
                 return null;
             }
 
