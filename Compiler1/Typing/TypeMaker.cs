@@ -367,9 +367,10 @@ namespace Compiler1
         public override object VisitVarDeclNode(VarDeclNode n)
         {
             TypeSymbol ts = MakeTypeSymbolForString(n.Type.Name);
+            Visit(n.rhs);
             if (ts == null)
             {
-                Visit(n.rhs); ts = n.rhs.Type;
+                ts = n.rhs.Type;
             }
 
             n.Type = ts;

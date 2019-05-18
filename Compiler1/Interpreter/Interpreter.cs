@@ -32,7 +32,7 @@ namespace Compiler1
             {
                 foreach (var item in par)
                 {
-                    Console.WriteLine(item.Stringify());
+                    Console.WriteLine(item.ToString());
                 }
                 return null;
             };
@@ -46,10 +46,11 @@ namespace Compiler1
             new FunctionGlobalFinder(this).Visit(Root);
 
             // Run main - with Command line arguments
-            var args = Environment.GetCommandLineArgs();
+            var args = Environment.GetCommandLineArgs().Skip(2);
             CallFunction("main", new LData[1] { new LArray(args.Select(s => new LString(s)).ToArray()) });
 
             Console.WriteLine("Finished Execution");
+            Console.WriteLine(globals.ToString());
         }
         
 

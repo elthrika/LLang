@@ -4,6 +4,6 @@
     <ProjectView>ProjectFiles</ProjectView>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
-    <StartArguments>..\..\LCode\linked_list.l</StartArguments>
+    <StartArguments>..\..\LCode\test.l 1</StartArguments>
   </PropertyGroup>
 </Project>

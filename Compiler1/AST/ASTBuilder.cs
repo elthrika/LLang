@@ -286,7 +286,7 @@ namespace Compiler1
                 }
             }
 
-            TypeSymbol functionType = TypeSymbol.FUNCTION_SYMBOL("_type_function_" + funname, rettype, argtypes);
+            TypeSymbol functionType = TypeSymbol.FUNCTION_SYMBOL(funname, rettype, argtypes);
 
             Statement body = (Statement)Visit(context.block());
 

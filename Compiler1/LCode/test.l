@@ -44,6 +44,8 @@ def main(args : [string]) -> void {
 	b : int = 3;
 	f : foo = new foo;
 	
+	f.j = b;
+
 	funs := [abs, neg];
 	funs[0](4);
 	

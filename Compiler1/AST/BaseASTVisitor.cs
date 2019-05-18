@@ -217,8 +217,8 @@ namespace Compiler1
 
         public virtual T VisitReturnNode(ReturnNode n)
         {
-
-            T a = n.ret.Accept(this);
+            if(n.ret != null)
+                n.ret.Accept(this);
 
             return default(T);
         }

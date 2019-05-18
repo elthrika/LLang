@@ -42,8 +42,6 @@ namespace Compiler1
             interp.Run();
 
             //(new MIPSCodeGenerator(outfile)).Visit(root);
-
-            Console.ReadKey();
         }
     }
 }

@@ -10,7 +10,6 @@ namespace Compiler1
         dynamic GetValue(string fname = null);
         void SetValue(LData val, string fname);
         void SetValue(dynamic val);
-        string Stringify();
         string TypeName();
     }
 
@@ -68,7 +67,7 @@ namespace Compiler1
             }
         }
 
-        public string Stringify()
+        public override string ToString()
         {
             return Value.ToString();
         }
@@ -110,7 +109,7 @@ namespace Compiler1
             }
         }
 
-        public string Stringify()
+        public override string ToString()
         {
             return Value.ToString();
         }
@@ -152,7 +151,7 @@ namespace Compiler1
             }
         }
 
-        public string Stringify()
+        public override string ToString()
         {
             return Value.ToString();
         }
@@ -179,14 +178,12 @@ namespace Compiler1
             if(val is LData)
             {
                 SetValue(val as LData, null);
-                
             }
             else
             {
                 throw new ArgumentException();
             }
         }
-        public abstract string Stringify();
         public abstract string TypeName();
 
         internal static LNullable GetForTypeSymbol(TypeSymbol ts)
@@ -225,7 +222,7 @@ namespace Compiler1
             throw new NullReferenceException();
         }
 
-        public override string Stringify()
+        public override string ToString()
         {
             return "null";
         }
@@ -269,8 +266,10 @@ namespace Compiler1
             throw new ArgumentException();
         }
 
-        public override string Stringify()
+        public override string ToString()
         {
+            if (isNull) return "null";
+
             return string.Join("", _Str);
         }
 
@@ -313,9 +312,12 @@ namespace Compiler1
             throw new ArgumentException();
         }
 
-        public override string Stringify()
+        public override string ToString()
         {
-            return $"[{_Arr.Select(elem => elem.ToString()).Aggregate((e1, e2) => $"{e1},{e2}")}]";
+            if (isNull) return "null";
+            if (Length == 0) return "[]";
+
+            return $"[{_Arr.Select(elem => elem.ToString()).Aggregate((e1, e2) => $"{e1}, {e2}")}]";
         }
 
         public override string TypeName()
@@ -357,11 +359,19 @@ namespace Compiler1
 
         public override void SetValue(LData val, string fname)
         {
-            if (fname == null && val is LStruct)
+            if (fname == null)
             {
-                isNull = false;
-                Value = (val as LStruct).Value;
-                return;
+                if(val is LStruct && (val as LStruct).typename == typename)
+                {
+                    isNull = false;
+                    Value = (val as LStruct).Value;
+                    return;
+                }
+                else if(val is LNull)
+                {
+                    isNull = true;
+                    return;
+                }
             }
 
             if (isNull) throw new NullReferenceException();
@@ -374,15 +384,17 @@ namespace Compiler1
             return $"{{{Value.Keys.Select(k => $"{k}: {Value[k].TypeName()}").Aggregate((e1, e2) => $"{e1}, {e2}")}}}";
         }
 
-        public override string Stringify()
+        public override string ToString()
         {
+            if (isNull) return "null";
+
             StringBuilder sb = new StringBuilder();
             sb.AppendLine($"({typename}) {{");
 
             foreach (var e in Value)
             {
                 var fname = e.Key;
-                sb.Append($"\t{fname}: ");
+                sb.Append($"\t  {fname}: ");
                 string datastr;
                 if(e.Value is LStruct)
                 {
@@ -390,14 +402,14 @@ namespace Compiler1
                 }
                 else
                 {
-                    datastr = e.Value.Stringify();
+                    datastr = e.Value.ToString();
                 }
                 foreach (var line in datastr.Split("\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries))
                 {
-                    sb.AppendLine(line);
+                    sb.AppendLine($"{line}");
                 }
             }
-            sb.Append("}");
+            sb.Append("\t}");
             return sb.ToString();
         }
 

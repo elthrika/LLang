@@ -7,33 +7,33 @@ using System.Threading.Tasks;
 
 namespace Compiler1
 {
-    public class Scope<T> : IDictionary<string, T>
+    public class Scope<T>// : IDictionary<string, T>
     {
 
-        Scope<T> parent = null;
-        List<Scope<T>> children = null;
+        Scope<T> Parent = null;
+        List<Scope<T>> Children = null;
 
-        Dictionary<string, T> values = new Dictionary<string, T>();
+        Dictionary<string, T> Values = new Dictionary<string, T>();
 
-        public ICollection<string> Keys => values.Keys;
+        //public ICollection<string> Keys => values.Keys;
 
-        public ICollection<T> Values => values.Values;
+        //public ICollection<T> Values => values.Values;
 
-        public int Count => values.Count;
+        //public int Count => values.Count;
 
-        public bool IsReadOnly => false;
+        //public bool IsReadOnly => false;
 
-        public T this[string key] { get => values[key]; set => values[key] = value; }
+        public T this[string key] { get => IsInScope(key); set => PutInScope(key, value); }
 
         public Scope<T> GoUp()
         {
-            return parent;
+            return Parent;
         }
 
         public Scope<T> GoDown()
         {
             Scope<T> ns = new Scope<T>(this);
-            children.Add(ns);
+            Children.Add(ns);
             return ns;
         }
 
@@ -44,28 +44,28 @@ namespace Compiler1
 
         public Scope(Scope<T> parent)
         {
-            this.parent = parent;
-            children = new List<Scope<T>>();
+            this.Parent = parent;
+            Children = new List<Scope<T>>();
         }
 
         public T IsInScope(string key)
         {
             if (key == null) return default(T);
 
-            if (values.ContainsKey(key))
+            if (Values.ContainsKey(key))
             {
-                return values[key];
+                return Values[key];
             }
-            return parent == null ? default(T) : parent.IsInScope(key);
+            return Parent == null ? default(T) : Parent.IsInScope(key);
         }
 
         public bool PutInScope(string key, T value)
         {
-            if (values.ContainsKey(key) || value == null)
+            if (Values.ContainsKey(key) || value == null)
             {
                 return false;
             }
-            values[key] = value;
+            Values[key] = value;
             return true;
         }
 
@@ -81,59 +81,79 @@ namespace Compiler1
             return rval;
         }
 
-        public bool ContainsKey(string key)
+        public override string ToString()
         {
-            return values.ContainsKey(key);
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("{");
+            foreach (var key in Values.Keys)
+            {
+                sb.AppendLine($"\t{key}={Values[key].ToString()}");
+            }
+            foreach (var child in Children)
+            {
+                string c = child.ToString();
+                foreach (var line in c.Split("\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries))
+                {
+                    sb.AppendLine($"\t{line}");
+                }
+            }
+            sb.Append("}");
+            return sb.ToString();
         }
 
-        public void Add(string key, T value)
-        {
-            PutInScope(key, value);
-        }
+        //public bool ContainsKey(string key)
+        //{
+        //    return values.ContainsKey(key);
+        //}
 
-        public bool Remove(string key)
-        {
-            return values.Remove(key);
-        }
+        //public void Add(string key, T value)
+        //{
+        //    PutInScope(key, value);
+        //}
 
-        public bool TryGetValue(string key, out T value)
-        {
-            return values.TryGetValue(key, out value);
-        }
+        //public bool Remove(string key)
+        //{
+        //    return values.Remove(key);
+        //}
 
-        public void Add(KeyValuePair<string, T> item)
-        {
-            PutInScope(item.Key, item.Value);
-        }
+        //public bool TryGetValue(string key, out T value)
+        //{
+        //    return values.TryGetValue(key, out value);
+        //}
 
-        public void Clear()
-        {
-            values.Clear();
-        }
+        //public void Add(KeyValuePair<string, T> item)
+        //{
+        //    PutInScope(item.Key, item.Value);
+        //}
 
-        public bool Contains(KeyValuePair<string, T> item)
-        {
-            return values.Contains(item);
-        }
+        //public void Clear()
+        //{
+        //    values.Clear();
+        //}
 
-        public void CopyTo(KeyValuePair<string, T>[] array, int arrayIndex)
-        {
-            ;
-        }
+        //public bool Contains(KeyValuePair<string, T> item)
+        //{
+        //    return values.Contains(item);
+        //}
 
-        public bool Remove(KeyValuePair<string, T> item)
-        {
-            return values.Remove(item.Key);
-        }
+        //public void CopyTo(KeyValuePair<string, T>[] array, int arrayIndex)
+        //{
+        //    ;
+        //}
 
-        public IEnumerator<KeyValuePair<string, T>> GetEnumerator()
-        {
-            return values.GetEnumerator();
-        }
+        //public bool Remove(KeyValuePair<string, T> item)
+        //{
+        //    return values.Remove(item.Key);
+        //}
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
+        //public IEnumerator<KeyValuePair<string, T>> GetEnumerator()
+        //{
+        //    return values.GetEnumerator();
+        //}
+
+        //IEnumerator IEnumerable.GetEnumerator()
+        //{
+        //    return GetEnumerator();
+        //}
     }
 }
