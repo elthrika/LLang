@@ -3,3 +3,4 @@ Compiler1/obj
 *.config
 
 /.vs/Compiler1/v15
+/Compiler1/Parser/Backup

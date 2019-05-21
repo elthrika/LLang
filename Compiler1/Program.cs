@@ -32,7 +32,7 @@ namespace Compiler1
             if ((errors = sc.Check(root)) > 0)
             {
                 Console.WriteLine("{0} Error(s) - Aborting", errors);
-                Console.ReadKey();
+                //(new AstPrinter()).Visit(root);
                 return;
             }
 

@@ -61,7 +61,6 @@
     <Compile Include="CodeGen\MIPS\MIPSRegisterManager.cs" />
     <Compile Include="Interpreter\Interpreter.cs" />
     <Compile Include="Interpreter\LData.cs" />
-    <Compile Include="Parser\langLexer.cs" />
     <Compile Include="Parser\llangBaseVisitor.cs" />
     <Compile Include="Parser\llangLexer.cs" />
     <Compile Include="Parser\llangParser.cs" />
@@ -81,8 +80,9 @@
     <None Include="LCode\faults.l" />
     <None Include="LCode\linked_list.l" />
     <None Include="LCode\test.l" />
-    <None Include="llang.g4" />
     <None Include="packages.config" />
+    <None Include="Parser\llang.g4" />
+    <None Include="Parser\mkgrammar" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="CodeGen\x86\" />
