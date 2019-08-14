@@ -51,6 +51,16 @@ public interface IllangListener : IParseTreeListener {
 	/// <param name="context">The parse tree.</param>
 	void ExitToplevel([NotNull] llangParser.ToplevelContext context);
 	/// <summary>
+	/// Enter a parse tree produced by <see cref="llangParser.export"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	void EnterExport([NotNull] llangParser.ExportContext context);
+	/// <summary>
+	/// Exit a parse tree produced by <see cref="llangParser.export"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	void ExitExport([NotNull] llangParser.ExportContext context);
+	/// <summary>
 	/// Enter a parse tree produced by <see cref="llangParser.libimport"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

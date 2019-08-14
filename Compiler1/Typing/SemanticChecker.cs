@@ -17,10 +17,12 @@ namespace Compiler1
 
         public int Check(ASTNode root)
         {
-            var builtins = new Scope<TypeSymbol>();
-            builtins.PutInScope("print", TypeSymbol.FUNCTION_SYMBOL("print", TypeSymbol.VOID_SYMBOL, new List<TypeSymbol>() { TypeSymbol.INT_SYMBOL }));
+            var intrinsics = new Scope<TypeSymbol>();
+            intrinsics.PutInScope("print`(int)", TypeSymbol.FUNCTION_SYMBOL("print", "(int)->void", TypeSymbol.VOID_SYMBOL, new List<TypeSymbol>() { TypeSymbol.INT_SYMBOL }));
+            intrinsics.PutInScope("print`(string)", TypeSymbol.FUNCTION_SYMBOL("print", "(string)->void", TypeSymbol.VOID_SYMBOL, new List<TypeSymbol>() { TypeSymbol.STRING_SYMBOL }));
+            //intrinsics.PutInScope("atoi`(string)", TypeSymbol.FUNCTION_SYMBOL("atoi", "(string)->int", TypeSymbol.INT_SYMBOL, new List<TypeSymbol>(1) { TypeSymbol.STRING_SYMBOL }));
 
-            TypeChecker tc = new TypeChecker(this, builtins);
+            TypeChecker tc = new TypeChecker(this, intrinsics);
             tc.Visit(root);
 
             MainChecker mc = new MainChecker();
@@ -50,11 +52,12 @@ namespace Compiler1
             SemanticChecker semanticChecker;
 
             Scope<TypeSymbol> varTypes;
+            //Scope<TypeSymbol> funTypes;
             TypeSymbol currentFunction = null;
 
-            public TypeChecker(SemanticChecker sc, Scope<TypeSymbol> imports = null)
+            public TypeChecker(SemanticChecker sc, Scope<TypeSymbol> varimports = null)//, Scope<TypeSymbol> funimports = null)
             {
-                varTypes = new Scope<TypeSymbol>(imports);
+                varTypes = new Scope<TypeSymbol>(varimports);
                 semanticChecker = sc;
             }
 
@@ -155,11 +158,12 @@ namespace Compiler1
 
                 if(n.basestruct.Type.Kind == TypeSymbol.TypeKind.STRUCT)
                 {
-                    semanticChecker.CheckAndReport(n.basestruct.Type.Fields.ContainsKey(n.fieldname), n.sourceLoc, "Undeclared field");
+                    semanticChecker.CheckAndReport(n.basestruct.Type.Fields.ContainsKey(n.fieldname), n.sourceLoc, $"Undeclared Field {n.fieldname} in {n.basestruct.Type.Name}");
                 }
                 else if(n.basestruct.Type.Kind == TypeSymbol.TypeKind.POINTER)
                 {
-                    semanticChecker.CheckAndReport(TypeMaker.MakeTypeSymbolForString(n.basestruct.Type.Name).Fields.ContainsKey(n.fieldname), n.sourceLoc, "Undeclared Field");
+                    var structsymbol = TypeMaker.MakeTypeSymbolForString(n.basestruct.Type.Name);
+                    semanticChecker.CheckAndReport(structsymbol.Fields.ContainsKey(n.fieldname), n.sourceLoc, $"Undeclared Field {n.fieldname} in {structsymbol.Name}");
                 }
                 else
                 {
@@ -171,7 +175,7 @@ namespace Compiler1
             public override object VisitForNode(ForNode n)
             {
                 Visit(n.inList);
-                semanticChecker.CheckAndReport(n.inList.Type.Kind == TypeSymbol.TypeKind.ARRAY, n.sourceLoc, "Array not typeof Array");
+                semanticChecker.CheckAndReport(n.inList.Type.Kind == TypeSymbol.TypeKind.ARRAY, n.sourceLoc, "Array in for-loop is not an array");
                 varTypes = varTypes.GoDown();
                 varTypes.PutInScope(n.var, n.inList.Type.ArrayType);
                 Visit(n.body);
@@ -184,17 +188,22 @@ namespace Compiler1
             {
                 Visit(n.name);
                 TypeSymbol funType = null;
+                string name = "";
                 if(n.name is IdenExprNode)
                 {
-                    var name = (n.name as IdenExprNode).name;
+                    name = (n.name as IdenExprNode).name;
+                    name = TypeSymbol.MakeFunctionName(name, n.args);
                     funType = varTypes.IsInScope(name);
                 }
                 else
                 {
                     funType = n.name.Type;
                 }
-                semanticChecker.CheckAndReport(funType != null, n.sourceLoc, "Undeclared Function");
-                if(funType != null)
+
+                semanticChecker.CheckAndReport(funType != null, n.sourceLoc, $"Undeclared Function {name}");
+                n.name.Type = funType;
+
+                if (funType != null)
                 {
                     semanticChecker.CheckAndReport(n.args.Count <= funType.ParameterTypes.Count, n.sourceLoc, string.Format("Too many arguments ({0}) given, {1} expected", n.args.Count, funType.ParameterTypes.Count));
                     semanticChecker.CheckAndReport(n.args.Count >= funType.ParameterTypes.Count, n.sourceLoc, string.Format("Too few arguments ({0}) given, {1} expected", n.args.Count, funType.ParameterTypes.Count));
@@ -211,36 +220,11 @@ namespace Compiler1
             {
                 Visit(n.name);
                 TypeSymbol funType = null;
+                string name = "";
                 if (n.name is IdenExprNode)
                 {
-                    var name = (n.name as IdenExprNode).Type.Name + n.funname;
-                    funType = varTypes.IsInScope(name);
-                }
-                else
-                {
-                    funType = n.name.Type;
-                }
-                semanticChecker.CheckAndReport(funType != null, n.sourceLoc, "Undeclared Function");
-                if (funType != null)
-                {
-                    semanticChecker.CheckAndReport(n.args.Count <= funType.ParameterTypes.Count, n.sourceLoc, string.Format("Too many arguments ({0}) given, {1} expected", n.args.Count, funType.ParameterTypes.Count));
-                    semanticChecker.CheckAndReport(n.args.Count >= funType.ParameterTypes.Count, n.sourceLoc, string.Format("Too few arguments ({0}) given, {1} expected", n.args.Count, funType.ParameterTypes.Count));
-                    for (int i = 0; i < Math.Min(funType.ParameterTypes.Count, n.args.Count); i++)
-                    {
-                        Visit(n.args[i]);
-                        semanticChecker.CheckAndReport(funType.ParameterTypes[i].Match(n.args[i].Type), n.sourceLoc, "argument mismatch: " + (i + 1));
-                    }
-                }
-                return null;
-            }
-
-            public override object VisitImplicitFunCallStmtNode(ImplicitFunCallStmtNode n)
-            {
-                Visit(n.name);
-                TypeSymbol funType = null;
-                if (n.name is IdenExprNode)
-                {
-                    var name = (n.name as IdenExprNode).Type.Name + n.funname;
+                    name = (n.name as IdenExprNode).Type.Name + n.funname;
+                    name = TypeSymbol.MakeFunctionName(name, n.args);
                     funType = varTypes.IsInScope(name);
                 }
                 else
@@ -248,7 +232,8 @@ namespace Compiler1
                     funType = n.name.Type;
                 }
 
-                semanticChecker.CheckAndReport(funType != null, n.sourceLoc, "Undeclared Function");
+                semanticChecker.CheckAndReport(funType != null, n.sourceLoc, $"Undeclared Function {name}");
+                n.name.Type = funType;
 
                 if (funType != null)
                 {
@@ -267,9 +252,11 @@ namespace Compiler1
             {
                 Visit(n.name);
                 TypeSymbol funType = null;
+                string name = "";
                 if (n.name is IdenExprNode)
                 {
-                    var name = (n.name as IdenExprNode).name;
+                    name = (n.name as IdenExprNode).name;
+                    name = TypeSymbol.MakeFunctionName(name, n.args);
                     funType = varTypes.IsInScope(name);
                 }
                 else
@@ -277,7 +264,8 @@ namespace Compiler1
                     funType = n.name.Type;
                 }
 
-                semanticChecker.CheckAndReport(funType != null, n.sourceLoc, "Undeclared Function");
+                semanticChecker.CheckAndReport(funType != null, n.sourceLoc, $"Undeclared Function {name}");
+                n.name.Type = funType;
 
                 if (funType != null)
                 {
@@ -293,9 +281,43 @@ namespace Compiler1
                 return null;
             }
 
+            public override object VisitImplicitFunCallStmtNode(ImplicitFunCallStmtNode n)
+            {
+                Visit(n.name);
+                TypeSymbol funType = null;
+                string name = "";
+                if (n.name is IdenExprNode)
+                {
+                    name = (n.name as IdenExprNode).Type.Name + n.funname;
+                    name = TypeSymbol.MakeFunctionName(name, n.args);
+                    funType = varTypes.IsInScope(name);
+                }
+                else
+                {
+                    funType = n.name.Type;
+                }
+
+                semanticChecker.CheckAndReport(funType != null, n.sourceLoc, $"Undeclared Function {name}");
+                n.name.Type = funType;
+
+                if (funType != null)
+                {
+                    semanticChecker.CheckAndReport(n.args.Count <= funType.ParameterTypes.Count, n.sourceLoc, string.Format("Too many arguments ({0}) given, {1} expected", n.args.Count, funType.ParameterTypes.Count));
+                    semanticChecker.CheckAndReport(n.args.Count >= funType.ParameterTypes.Count, n.sourceLoc, string.Format("Too few arguments ({0}) given, {1} expected", n.args.Count, funType.ParameterTypes.Count));
+                    for (int i = 0; i < Math.Min(funType.ParameterTypes.Count, n.args.Count); i++)
+                    {
+                        Visit(n.args[i]);
+                        semanticChecker.CheckAndReport(funType.ParameterTypes[i].Match(n.args[i].Type), n.sourceLoc, "argument mismatch: " + (i + 1));
+                    }
+                }
+                return null;
+            }
+
             public override object VisitFunDefNode(FunDefNode n)
             {
-                semanticChecker.CheckAndReport(varTypes.PutInScope(n.name, n.funtype), n.sourceLoc, $"Function {n.name} already declared");
+                string name = TypeSymbol.MakeFunctionName(n.name, n.funtype.ParameterTypes);
+
+                semanticChecker.CheckAndReport(varTypes.PutInScope(name, n.funtype), n.sourceLoc, $"Function or function override with argtypes {n.name} already declared");
                 currentFunction = n.funtype;
 
                 varTypes = varTypes.GoDown();
@@ -317,7 +339,15 @@ namespace Compiler1
 
             public override object VisitIdenExprNode(IdenExprNode n)
             {
-                semanticChecker.CheckAndReport(varTypes.IsInScope(n.name) != null, n.sourceLoc, "Undelared Variable");
+                string name = n.name;
+                if(n.Type.Kind == TypeSymbol.TypeKind.FUNCTION)
+                {
+                    if (n.Type.ParameterTypes.Count > 0)
+                        name += $"`({n.Type.ParameterTypes.Select(ts => ts.Name).Aggregate((a, b) => $"{a},{b}")})";
+                    else
+                        name += "`(void)";
+                }
+                semanticChecker.CheckAndReport(varTypes.IsInScope(name) != null, n.sourceLoc, $"Undeclared Variable {n.name}");
                 return null;
             }
 
@@ -339,9 +369,19 @@ namespace Compiler1
 
             public override object VisitListExprNode(ConstListExprNode n)
             {
-                foreach (Expression e in n.ListValue)
+                if(n.Type.ArrayType.Kind == TypeSymbol.TypeKind.FUNCTION)
                 {
-                    Visit(e);
+                    foreach (var e in n.ListValue)
+                    {
+
+                    }
+                }
+                else
+                {
+                    foreach (Expression e in n.ListValue)
+                    {
+                        Visit(e);
+                    }
                 }
                 
                 semanticChecker.CheckAndReport(n.ListValue.All((e) => e.Type.Match(n.Type.ArrayType)), n.sourceLoc, "At least one element has a different Type of the others");
@@ -352,25 +392,45 @@ namespace Compiler1
             {
                 // Visit in order
                 // GlobalVarDefs -> EnumDefs -> StructDefs -> FunDefs -> ?
-                foreach(ASTNode c in n.children)
+                var globdefs   = new List<ASTNode>(n.children.Count);
+                var enumdefs   = new List<ASTNode>(n.children.Count);
+                var structdefs = new List<ASTNode>(n.children.Count);
+                var rest       = new List<ASTNode>(n.children.Count);
+
+                foreach (var c in n.children)
                 {
-                    if (c.kind == ASTKind.GlobalVarDef)
-                        Visit(c);
+                    switch (c.kind)
+                    {
+                        case ASTKind.GlobalVarDef:
+                            globdefs.Add(c);
+                            break;
+                        case ASTKind.EnumDef:
+                            enumdefs.Add(c);
+                            break;
+                        case ASTKind.StructDef:
+                            structdefs.Add(c);
+                            break;
+                        default:
+                            rest.Add(c);
+                            break;
+                    }
                 }
-                foreach (ASTNode c in n.children)
+
+                foreach (ASTNode c in globdefs)
                 {
-                    if (c.kind == ASTKind.EnumDef)
-                        Visit(c);
+                    Visit(c);
                 }
-                foreach (ASTNode c in n.children)
+                foreach (ASTNode c in enumdefs)
                 {
-                    if (c.kind == ASTKind.StructDef)
-                        Visit(c);
+                    Visit(c);
                 }
-                foreach (ASTNode c in n.children)
+                foreach (ASTNode c in structdefs)
                 {
-                    if (c.kind == ASTKind.FunDef)
-                        Visit(c);
+                    Visit(c);
+                }
+                foreach (ASTNode c in rest)
+                {
+                    Visit(c);
                 }
 
                 return null;

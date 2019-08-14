@@ -10,10 +10,10 @@ namespace Compiler1
     public class Scope<T>// : IDictionary<string, T>
     {
 
-        Scope<T> Parent = null;
-        List<Scope<T>> Children = null;
+        protected Scope<T> Parent = null;
+        protected List<Scope<T>> Children = null;
 
-        Dictionary<string, T> Values = new Dictionary<string, T>();
+        protected Dictionary<string, T> Values = new Dictionary<string, T>();
 
         //public ICollection<string> Keys => values.Keys;
 
@@ -59,6 +59,20 @@ namespace Compiler1
             return Parent == null ? default(T) : Parent.IsInScope(key);
         }
 
+        public ICollection<T> GetPredicateMatches(Func<string, T, bool> predicate)
+        {
+            List<T> all = new List<T>();
+            foreach (var key in Values.Keys)
+            {
+                if (predicate(key, Values[key]))
+                    all.Add(Values[key]);
+            }
+            if(Parent != null)
+                all.AddRange(Parent.GetPredicateMatches(predicate));
+            return all;
+        }
+
+
         public bool PutInScope(string key, T value)
         {
             if (Values.ContainsKey(key) || value == null)
@@ -67,6 +81,16 @@ namespace Compiler1
             }
             Values[key] = value;
             return true;
+        }
+
+        public bool Remove(string key)
+        {
+            return Values.Remove(key);
+        }
+
+        public bool PutAllInScope(Dictionary<string, T> dict)
+        {
+            return PutAllInScope(dict.Keys, dict.Values);
         }
 
         public bool PutAllInScope(ICollection<string> keys, ICollection<T> values)

@@ -286,7 +286,7 @@ namespace Compiler1
                 }
             }
 
-            TypeSymbol functionType = TypeSymbol.FUNCTION_SYMBOL(funname, rettype, argtypes);
+            TypeSymbol functionType = TypeSymbol.FUNCTION_SYMBOL(funname, funname, rettype, argtypes);
 
             Statement body = (Statement)Visit(context.block());
 
@@ -382,8 +382,9 @@ namespace Compiler1
 
         public override ASTNode VisitToplevel([NotNull] llangParser.ToplevelContext context)
         {
-            Debug.Assert(context.ChildCount == 1);
-            return Visit(context.GetChild(0));
+            var n = Visit(context.GetChild(1));
+            n.isExport = context.export().GetText() == "export";
+            return n;
         }
 
         public override ASTNode VisitVarDeclStmt([NotNull] llangParser.VarDeclStmtContext context)

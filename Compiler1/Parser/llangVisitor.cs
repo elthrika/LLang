@@ -44,6 +44,12 @@ public interface IllangVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitToplevel([NotNull] llangParser.ToplevelContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="llangParser.export"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitExport([NotNull] llangParser.ExportContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="llangParser.libimport"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

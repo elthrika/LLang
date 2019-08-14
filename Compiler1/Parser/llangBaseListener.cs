@@ -59,6 +59,18 @@ public partial class llangBaseListener : IllangListener {
 	/// <param name="context">The parse tree.</param>
 	public virtual void ExitToplevel([NotNull] llangParser.ToplevelContext context) { }
 	/// <summary>
+	/// Enter a parse tree produced by <see cref="llangParser.export"/>.
+	/// <para>The default implementation does nothing.</para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	public virtual void EnterExport([NotNull] llangParser.ExportContext context) { }
+	/// <summary>
+	/// Exit a parse tree produced by <see cref="llangParser.export"/>.
+	/// <para>The default implementation does nothing.</para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	public virtual void ExitExport([NotNull] llangParser.ExportContext context) { }
+	/// <summary>
 	/// Enter a parse tree produced by <see cref="llangParser.libimport"/>.
 	/// <para>The default implementation does nothing.</para>
 	/// </summary>

@@ -252,6 +252,23 @@ namespace Compiler1
         public override dynamic GetValue(string fname = null)
         {
             if (isNull) return null;
+
+            if (fname != null)
+            {
+                if (fname == "length")
+                {
+                    return new LInt(Length);
+                }
+                else if (fname == "_str")
+                {
+                    var larr = new LData[Length];
+                    for (int i = 0; i < Length; i++)
+                    {
+                        larr[i] = new LInt(_Str[i]);
+                    }
+                    return new LArray(larr);
+                }
+            }
             return new { length = Length, _str = _Str };
         }
 
@@ -298,6 +315,11 @@ namespace Compiler1
         {
             if (isNull) return null;
 
+            if(fname != null)
+            {
+                if (fname == "length")
+                    return new LInt(Length);
+            }
             return new { length = Length, _arr = _Arr };
         }
 

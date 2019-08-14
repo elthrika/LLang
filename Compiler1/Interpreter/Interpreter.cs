@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -28,13 +29,133 @@ namespace Compiler1
         {
             builtins = new Dictionary<string, Func<ICollection<LData>, LData>>();
 
-            builtins["print"] = par =>
+            builtins["print`(int)"] = par =>
             {
-                foreach (var item in par)
+                Console.WriteLine(par.First().GetValue());
+                return LNull.NULL;
+            };
+
+            builtins["print`(int, int)"] = par =>
+            {
+                Console.WriteLine(Convert.ToString((long)par.ElementAt(0).GetValue(), (int)par.ElementAt(1).GetValue()));
+
+                return LNull.NULL;
+            };
+
+            builtins["print`(float)"] = par =>
+            {
+                Console.WriteLine(par.First().GetValue());
+                return LNull.NULL;
+            };
+
+            builtins["print`(bool)"] = par =>
+            {
+                Console.WriteLine(par.First().GetValue());
+                return LNull.NULL;
+            };
+
+            builtins["print`(string)"] = par =>
+            {
+                Console.WriteLine(new string(par.First().GetValue()._str));
+                return LNull.NULL;
+            };
+
+            builtins["readInt`()"] = par =>
+            {
+                return new LInt(long.Parse(Console.ReadLine()));
+            };
+
+            builtins["readFloat`()"] = par =>
+            {
+                return new LFloat(double.Parse(Console.ReadLine()));
+            };
+
+            builtins["readString`()"] = par =>
+            {
+                return new LString(Console.ReadLine());
+            };
+
+            builtins["openFile`(string, int, int)"] = par =>
+            {
+                string fname = new string(par.ElementAt(0).GetValue()._str);
+                var fmode = (FileMode)par.ElementAt(1).GetValue();
+                var faccess = (FileAccess)par.ElementAt(2).GetValue();
+
+                var fs = File.Open(fname, fmode, faccess);
+                
+                return new LInt(fs.SafeFileHandle.DangerousGetHandle().ToInt64());
+            };
+
+            builtins["readFromFile`(int, int, int)"] = par =>
+            {
+                long fhandle = par.ElementAt(0).GetValue();
+                var readOffset = par.ElementAt(1).GetValue();
+                var readLength = par.ElementAt(2).GetValue();
+
+
+                var fs = new FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(new IntPtr(fhandle), true), FileAccess.Read);
+                var bytes = new byte[readLength];
+                fs.Read(bytes, readOffset, readLength);
+
+                var lInts = new LData[readLength];
+                for (int i = 0; i < readLength; i++)
                 {
-                    Console.WriteLine(item.ToString());
+                    lInts[i] = new LInt(bytes[i]);
                 }
-                return null;
+
+                return new LArray(lInts);
+            };
+
+            builtins["writeToFile`(int, [int])"] = par =>
+            {
+                long fhandle = par.ElementAt(0).GetValue();
+                var bytesToWrite = par.ElementAt(1).GetValue();
+                
+
+                var fs = new FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(new IntPtr(fhandle), true), FileAccess.Write);
+                foreach (var b in bytesToWrite._arr)
+                {
+                    fs.WriteByte((byte)b);
+                }
+
+                return new LInt(bytesToWrite.length);
+            };
+
+            builtins["writeToFile`(int, string)"] = par =>
+            {
+                long fhandle = par.ElementAt(0).GetValue();
+                var stringToWrite = par.ElementAt(1).GetValue();
+
+                var fs = new FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(new IntPtr(fhandle), true), FileAccess.Write);
+                foreach (var b in stringToWrite._str)
+                {
+                    fs.WriteByte((byte)b);
+                }
+
+                return new LInt(stringToWrite.length);
+            };
+
+            builtins["closeFile`(int)"] = par =>
+            {
+                long fhandle = par.ElementAt(0).GetValue();
+
+                var fs = new FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(new IntPtr(fhandle), true), FileAccess.Read);
+                fs.Flush();
+                fs.Close();
+
+                return LNull.NULL;
+            };
+
+            builtins["time`()"] = par =>
+            {
+                var origin = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                
+                return new LFloat(DateTime.Now.ToUniversalTime().Subtract(origin).TotalSeconds);
+            };
+
+            builtins["exit`(int)"] = par =>
+            {
+                throw new ExecutionTerminatedException(par.First().GetValue());
             };
         }
 
@@ -43,21 +164,24 @@ namespace Compiler1
             // Build types
             new TypeBuilder(this).Visit(Root);
             // Find all functions and get all globals
-            new FunctionGlobalFinder(this).Visit(Root);
+            new FunctionAndGlobalFinder(this).Visit(Root);
 
             // Run main - with Command line arguments
             var args = Environment.GetCommandLineArgs().Skip(2);
-            CallFunction("main", new LData[1] { new LArray(args.Select(s => new LString(s)).ToArray()) });
+            CallFunction("main`([string])", new LData[1] { new LArray(args.Select(s => new LString(s)).ToArray()) });
 
             Console.WriteLine("Finished Execution");
-            Console.WriteLine(globals.ToString());
+            //Console.WriteLine(globals.ToString());
         }
         
 
 
         public LData CallFunction(string name, ICollection<LData> parameters)
         {
-            if (builtins.ContainsKey(name)) return builtins[name](parameters);
+            //Console.WriteLine($"Calling: {name}");
+            if (builtins.ContainsKey(name)) {
+                return builtins[name](parameters);
+            }
 
             current = globals.GoDown();
             current.PutAllInScope(Functions[name].args, parameters);
@@ -69,6 +193,17 @@ namespace Compiler1
         public LData Eval(Expression expr)
         {
             return new InterpreterVisitor(this, globals).Visit(expr);
+        }
+
+        internal class ExecutionTerminatedException : Exception
+        {
+
+            public ExecutionTerminatedException(long exitcode)
+            {
+                ExitCode = exitcode;
+            }
+            public long ExitCode;
+            public override string Message => "Interpreter Execution Terminated";
         }
 
         private class InterpreterVisitor : BaseASTVisitor<LData>
@@ -304,10 +439,12 @@ namespace Compiler1
                 while(current.GetValue() < upper.GetValue())
                 {
                     arr.Add(current);
-                    current.SetValue(current.GetValue() + stepsize.GetValue());
+                    LData prev = current;
+                    current = LDataMaker.GetDataFor(n.Type.ArrayType);
+                    current.SetValue(prev.GetValue() + stepsize.GetValue());
                 }
 
-                return new LArray(arr.ToArray());
+                return new LArray(arr);
             }
 
             public override LData VisitDeferedNode(DeferedNode n)
@@ -348,7 +485,7 @@ namespace Compiler1
             {
                 if(n.name is IdenExprNode)
                 {
-                    return interp.CallFunction((n.name as IdenExprNode).name, n.args.Select(e => Visit(e)).ToArray());
+                    return interp.CallFunction((n.name as IdenExprNode).Type.FunctionName, n.args.Select(e => Visit(e)).ToArray());
                 }
                 else
                 {
@@ -363,7 +500,7 @@ namespace Compiler1
                 if (n.name is IdenExprNode)
                 {
                     var paras = n.args.Select(e => Visit(e)).ToArray();
-                    interp.CallFunction((n.name as IdenExprNode).name, paras);
+                    interp.CallFunction((n.name as IdenExprNode).Type.FunctionName, paras);
                 }
                 else
                 {
@@ -407,12 +544,12 @@ namespace Compiler1
 
             public override LData VisitImplicitFunCallExprNode(ImplicitFunCallExprNode n)
             {
-                return interp.CallFunction(n.fullname, n.args.Select(e => Visit(e)).ToArray());
+                return interp.CallFunction(TypeSymbol.MakeFunctionName(n.fullname, n.args), n.args.Select(e => Visit(e)).ToArray());
             }
 
             public override LData VisitImplicitFunCallStmtNode(ImplicitFunCallStmtNode n)
             {
-                interp.CallFunction(n.fullname, n.args.Select(e => Visit(e)).ToArray());
+                interp.CallFunction(TypeSymbol.MakeFunctionName(n.fullname, n.args), n.args.Select(e => Visit(e)).ToArray());
                 return null;
             }
 
@@ -496,18 +633,18 @@ namespace Compiler1
             }
         }
 
-        private class FunctionGlobalFinder : BaseASTVisitor<object>
+        private class FunctionAndGlobalFinder : BaseASTVisitor<object>
         {
             Interpreter interp;
 
-            public FunctionGlobalFinder(Interpreter interpreter)
+            public FunctionAndGlobalFinder(Interpreter interpreter)
             {
                 interp = interpreter;
             }
 
             public override object VisitFunDefNode(FunDefNode n)
             {
-                interp.Functions.Add(n.name, n);
+                interp.Functions.Add(n.funtype.FunctionName, n);
                 return null;
             }
 

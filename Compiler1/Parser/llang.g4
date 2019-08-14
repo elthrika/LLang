@@ -6,10 +6,14 @@ prog
 
 toplevel
     : libimport
-	| globalVar
-	| fundef
-	| structdef
-	| enumdef
+	| export globalVar
+	| export fundef
+	| export structdef
+	| export enumdef
+	;
+
+export
+	: 'export'?
 	;
 
 libimport

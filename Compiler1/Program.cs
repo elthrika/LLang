@@ -32,16 +32,23 @@ namespace Compiler1
             if ((errors = sc.Check(root)) > 0)
             {
                 Console.WriteLine("{0} Error(s) - Aborting", errors);
-                //(new AstPrinter()).Visit(root);
                 return;
             }
 
             (new AstPrinter()).Visit(root);
 
             Interpreter interp = new Interpreter(root);
-            interp.Run();
+            try
+            {
+                interp.Run();
+            }
+            catch (Interpreter.ExecutionTerminatedException e)
+            {
+                Console.WriteLine($"Execution Terminated by exit({e.ExitCode}) call");
+            }
 
             //(new MIPSCodeGenerator(outfile)).Visit(root);
+            //Console.ReadKey();
         }
     }
 }

@@ -76,6 +76,7 @@ namespace Compiler1
 
         public ASTKind kind;
         public SourceLoc sourceLoc;
+        public bool isExport = false;
 
         public ASTNode(ASTKind kind, SourceLoc sl)
         {

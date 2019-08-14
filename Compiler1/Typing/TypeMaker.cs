@@ -12,7 +12,15 @@ namespace Compiler1
 
         public Scope<TypeSymbol> varTypes = new Scope<TypeSymbol>();
 
+        private Stack<ASTNode> NodeStack = new Stack<ASTNode>();
+
         public TypeMaker()
+        {
+            MakeIntrinsicTypes();
+            MakeIntrinsicFunctionsAndVariables();
+        }
+
+        private void MakeIntrinsicTypes()
         {
             Dictionary<string, TypeSymbol> tmp = new Dictionary<string, TypeSymbol>()
             {
@@ -23,7 +31,18 @@ namespace Compiler1
                 { "string", TypeSymbol.STRING_SYMBOL },
             };
 
-            KnownTypes.PutAllInScope(tmp.Keys, tmp.Values);
+            KnownTypes.PutAllInScope(tmp);
+        }
+
+        private void MakeIntrinsicFunctionsAndVariables()
+        {
+            var intrinsics = new Dictionary<string, TypeSymbol>()
+            {
+                { "print`(int)", TypeSymbol.FUNCTION_SYMBOL("print", "(int)->void", TypeSymbol.VOID_SYMBOL, new List<TypeSymbol>(1) { TypeSymbol.INT_SYMBOL }) },
+                { "atoi`(string)", TypeSymbol.FUNCTION_SYMBOL("atoi", "(string)->int", TypeSymbol.INT_SYMBOL, new List<TypeSymbol>(1) { TypeSymbol.STRING_SYMBOL }) }
+            };
+
+            varTypes.PutAllInScope(intrinsics);
         }
 
         public static TypeSymbol MakeTypeSymbolForString(string s)
@@ -42,7 +61,64 @@ namespace Compiler1
 
         public override object Visit(ASTNode n)
         {
-            return n?.Accept(this);
+            NodeStack.Push(n);
+            var ret = n?.Accept(this);
+            NodeStack.Pop();
+            return ret;
+        }
+
+        public override object VisitProgNode(ProgNode n)
+        {
+            var globdefs   = new List<ASTNode>(n.children.Count);
+            var enumdefs   = new List<ASTNode>(n.children.Count);
+            var structdefs = new List<ASTNode>(n.children.Count);
+            var fundefs    = new List<ASTNode>(n.children.Count);
+            var rest       = new List<ASTNode>(n.children.Count);
+
+            foreach (var c in n.children)
+            {
+                switch (c.kind)
+                {
+                    case ASTKind.GlobalVarDef:
+                        globdefs.Add(c);
+                        break;
+                    case ASTKind.EnumDef:
+                        enumdefs.Add(c);
+                        break;
+                    case ASTKind.StructDef:
+                        structdefs.Add(c);
+                        break;
+                    case ASTKind.FunDef:
+                        fundefs.Add(c);
+                        break;
+                    default:
+                        rest.Add(c);
+                        break;
+                }
+            }
+
+            foreach (ASTNode c in globdefs)
+            {
+                Visit(c);
+            }
+            foreach (ASTNode c in enumdefs)
+            {
+                Visit(c);
+            }
+            foreach (ASTNode c in structdefs)
+            {
+                Visit(c);
+            }
+            foreach (ASTNode c in fundefs)
+            {
+                Visit(c);
+            }
+            foreach (ASTNode c in rest)
+            {
+                Visit(c);
+            }
+
+            return null;
         }
 
         public override object VisitArrayIndexNode(ArrayIndexNode n)
@@ -167,6 +243,23 @@ namespace Compiler1
         public override object VisitFunCallExprNode(FunCallExprNode n)
         {
             Visit(n.name);
+            var nametype = n.name.Type;
+            if (nametype.Kind == TypeSymbol.TypeKind.INFER && nametype.inferOptions != null && nametype.inferOptions.Count > 0)
+            {
+                foreach (var ts in nametype.inferOptions)
+                {
+                    bool ok = true;
+                    for (int i = 0; i < ts.ParameterTypes.Count; i++)
+                    {
+                        ok &= n.args[i].Type.Match(ts.ParameterTypes[i]);
+                    }
+                    if(ok)
+                    {
+                        n.name.Type = ts;
+                        break;
+                    }
+                }
+            }
             foreach (Expression e in n.args)
                 Visit(e);
             n.Type = n.name.Type.ReturnType;
@@ -220,9 +313,9 @@ namespace Compiler1
             {
                 functionType = $"()->{n.rettype.Name}";
             }
-            TypeSymbol funType = TypeSymbol.FUNCTION_SYMBOL(functionType, n.rettype, n.argtypes);
+            TypeSymbol funType = TypeSymbol.FUNCTION_SYMBOL(n.name, functionType, n.rettype, n.argtypes);
             n.funtype = funType;
-            varTypes.PutInScope(n.name, funType);
+            varTypes.PutInScope(funType.FunctionName, funType);
 
             varTypes = varTypes.GoDown();
             varTypes.PutAllInScope(n.args, n.argtypes);
@@ -250,7 +343,27 @@ namespace Compiler1
 
         public override object VisitIdenExprNode(IdenExprNode n)
         {
+            
             n.Type = varTypes.IsInScope(n.name);
+            if(n.Type == null)
+            {
+                var funmatches = varTypes.GetPredicateMatches((s, ts) => ts.FunctionName != null && ts.FunctionName.StartsWith(n.name+"`"));
+                if(funmatches.Count == 1)
+                {
+                    n.Type = funmatches.ElementAt(0);
+                }
+                else
+                {
+                    n.Type = TypeSymbol.INFER_FROM_SYMBOL(n.name, funmatches);
+                }
+            }
+            //var t = varTypes.IsInScope(n.name);
+            //n.Type = t == null ? funmatches.ElementAt(0) : t;
+            //if (funmatches.Count > 1)
+            //{
+            //    n.Type = TypeSymbol.INFER_FROM_SYMBOL(n.name, funmatches);
+            //}
+
             return null;
         }
 
@@ -273,9 +386,29 @@ namespace Compiler1
         {
             if (n.ListValue.Count > 0)
             {
+                TypeSymbol arrType = null;
                 foreach (Expression e in n.ListValue)
+                {
                     Visit(e);
-                n.Type = TypeSymbol.ARRAY_SYMBOL(n.ListValue[0].Type);
+                    var et = e.Type;
+                    if (arrType == null)
+                        arrType = et;
+                    else
+                    {
+                        if(et.Kind == TypeSymbol.TypeKind.INFER && et.inferOptions != null && et.inferOptions.Count > 0)
+                        {
+                            foreach (var ts in et.inferOptions)
+                            {
+                                if (ts.Match(arrType))
+                                {
+                                    e.Type = ts;
+                                    break;
+                                }    
+                            }
+                        }
+                    }
+                }
+                n.Type = TypeSymbol.ARRAY_SYMBOL(arrType);
             }
             else
             {

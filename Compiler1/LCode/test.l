@@ -12,7 +12,16 @@ struct foo {
 global x := 42;
 
 def atoi(s:string) -> int {
-	return 1;
+	num := 0;
+	for(n in [0 .. s.length])
+	{
+		num = (num * 10) + (s._str[n] - 48);
+	}
+	return num;
+}
+
+def neg(a:float)->float{
+	return -a;
 }
 
 def neg(a:int)->int {
@@ -47,7 +56,7 @@ def main(args : [string]) -> void {
 	f.j = b;
 
 	funs := [abs, neg];
-	funs[0](4);
+	funs[0](-4);
 	
 	n : Node = new Node;
 	r : Node = new Node;
@@ -55,7 +64,9 @@ def main(args : [string]) -> void {
 	n.prev = r;
 	r.next = n;
 	r.prev = null;
-		
+	
+	fl : float = neg(-1);
+
 	b = 4;
 	for(i in [1,2,3,4,5,6,7]){
 		a += i;
@@ -63,5 +74,7 @@ def main(args : [string]) -> void {
 	fun(a,b);
 	b += f.i + fun(a,b);
 	
+	print(x);
+
 	return;
 }
