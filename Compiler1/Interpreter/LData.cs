@@ -162,6 +162,44 @@ namespace Compiler1
         }
     }
 
+    internal class LEnum : LData
+    {
+        string Name;
+        Dictionary<string, LInt> Items;
+
+        internal LEnum(string name, Dictionary<string, long> items)
+        {
+            Name = name;
+            Items = new Dictionary<string, LInt>(items.Count);
+            foreach (var item in items)
+            {
+                Items.Add(item.Key, new LInt(item.Value));
+            }
+        }
+
+        public dynamic GetValue(string fname = null)
+        {
+            if (fname == null) return this;
+
+            return Items[fname];
+        }
+
+        public void SetValue(LData val, string fname)
+        {
+            throw new InvalidOperationException();
+        }
+
+        public void SetValue(dynamic val)
+        {
+            throw new InvalidOperationException();
+        }
+
+        public string TypeName()
+        {
+            return $"Enum::{Name}";
+        }
+    }
+
     internal abstract class LNullable : LData
     {
         internal bool isNull { get; set; }
@@ -330,6 +368,7 @@ namespace Compiler1
                 isNull = false;
                 _Arr = (val as LArray)._Arr;
                 Length = _Arr.Length;
+                return;
             }
             throw new ArgumentException();
         }

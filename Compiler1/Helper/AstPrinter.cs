@@ -338,5 +338,17 @@ namespace Compiler1
 
             return null;
         }
+
+        public object VisitEnumDefNode(EnumDefNode n)
+        {
+            WriteLine(n.kind + " - " + n.enumname);
+            Indent();
+            foreach (var item in n.Type.EnumItems)
+            {
+                WriteLine(item.Key + " = " + item.Value);
+            }
+            Dedent();
+            return null;
+        }
     }
 }

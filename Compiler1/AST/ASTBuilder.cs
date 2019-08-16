@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Antlr4.Runtime.Misc;
@@ -39,10 +39,10 @@ namespace Compiler1
 
             if(context.assignop().GetText().Length == 2)
             {
-                return new AugAssignNode(lhs, rhs, context.assignop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new AugAssignNode(lhs, rhs, context.assignop().GetText(), MakeSourceLoc(context));
             }
 
-            return new AssignNode(lhs, rhs, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new AssignNode(lhs, rhs, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitBlock([NotNull] llangParser.BlockContext context)
@@ -54,18 +54,57 @@ namespace Compiler1
                 stmts.Add((Statement)Visit(context.GetChild(i)));
             }
 
-            return new BlockNode(stmts, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new BlockNode(stmts, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitDeferstmt([NotNull] llangParser.DeferstmtContext context)
         {
             Expression e = (Expression)Visit(context.expr());
-            return new DeferedNode(e, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new DeferedNode(e, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitEnumdef([NotNull] llangParser.EnumdefContext context)
         {
-            return null;
+            string name = context.Iden().GetText();
+
+            var items = new Dictionary<string, long>();
+
+            long curval = 0;
+
+            if(context.enumDeclList() != null)
+            {
+                var ctx = context.enumDeclList().GetChild<llangParser.EnumDeclItemContext>(0);
+                for (int i = 1; ctx != null; i++)
+                {
+                    VarDeclNode v = (VarDeclNode)Visit(ctx);
+
+                    if (v.rhs != null)
+                    {
+                        curval = v.rhs.IntValue + 1;
+                    }
+                    else
+                    {
+                        v.rhs = new IntExprNode(curval++, v.sourceLoc);
+                    }
+                    items.Add(v.name, v.rhs.IntValue);
+
+                    ctx = context.enumDeclList().GetChild<llangParser.EnumDeclItemContext>(i);
+                }
+            }
+
+            return new EnumDefNode(name, TypeSymbol.ENUM_SYMBOL(name, items), MakeSourceLoc(context));
+        }
+
+        public override ASTNode VisitEnumDeclItem([NotNull] llangParser.EnumDeclItemContext context)
+        {
+            string name = context.Iden().GetText();
+            Expression rhs = null;
+            if(context.Number() != null)
+            {
+                rhs = new IntExprNode(long.Parse(context.Number().GetText()), MakeSourceLoc(context));
+            }
+
+            return new VarDeclNode(name, rhs, TypeSymbol.INT_SYMBOL, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitExpr([NotNull] llangParser.ExprContext context)
@@ -76,26 +115,26 @@ namespace Compiler1
                 string name = context.Iden().GetText();
 
                 if (name == "null")
-                    return new NullNode(new SourceLoc(context.Start.Line, context.Start.Column));
+                    return new NullNode(MakeSourceLoc(context));
 
-                return new IdenExprNode(name, TypeSymbol.INFER_SYMOBOL("__var__"), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new IdenExprNode(name, TypeSymbol.INFER_SYMOBOL("__var__"), MakeSourceLoc(context));
             }
             else if (context.Number() != null)
             {
                 if (context.Number().GetText().Contains("."))
-                    return new FloatExprNode(float.Parse(context.Number().GetText()), new SourceLoc(context.Start.Line, context.Start.Column));
-                return new IntExprNode(int.Parse(context.Number().GetText()), new SourceLoc(context.Start.Line, context.Start.Column));
+                    return new FloatExprNode(float.Parse(context.Number().GetText()), MakeSourceLoc(context));
+                return new IntExprNode(int.Parse(context.Number().GetText()), MakeSourceLoc(context));
             }
             else if (context.String() != null)
             {
-                return new StringExprNode(context.String().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new StringExprNode(context.String().GetText().Trim('\"'), MakeSourceLoc(context));
             }
             else if (context.varlist() != null)
             {
                 Expression l = (Expression) Visit(context.varlist().expr(0));
                 Expression u = (Expression) Visit(context.varlist().expr(1));
-                Expression s = context.varlist().expr().Length == 2 ? new IntExprNode(1, new SourceLoc(context.Start.Line, context.Start.Column)) : (Expression)Visit(context.varlist().expr(2));
-                return new VarListExprNode(l, u, s, new SourceLoc(context.Start.Line, context.Start.Column));
+                Expression s = context.varlist().expr().Length == 2 ? new IntExprNode(1, MakeSourceLoc(context)) : (Expression)Visit(context.varlist().expr(2));
+                return new VarListExprNode(l, u, s, MakeSourceLoc(context));
             }
             else if (context.elementlist() != null)
             {
@@ -107,12 +146,12 @@ namespace Compiler1
                         elems.Add((Expression)Visit(context.elementlist().expr(i)));
                     }
                 }
-                return new ConstListExprNode(elems, new SourceLoc(context.Start.Line, context.Start.Column));
+                return new ConstListExprNode(elems, MakeSourceLoc(context));
             }
             else if (context.unaryop() != null)
             {
                 Expression operand = (Expression)Visit(context.expr(0));
-                return new UnaryExprNode(operand, context.unaryop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new UnaryExprNode(operand, context.unaryop().GetText(), MakeSourceLoc(context));
             }
             else if(context.multop() != null || context.addop() != null || context.shiftop() != null || context.compop() != null 
                 || context.eqop() != null || context.bitwiseop() != null || context.logicop() != null)
@@ -124,7 +163,7 @@ namespace Compiler1
                 Expression basestruct = (Expression)Visit(context.expr(0));
                 string fieldname = context.Iden().GetText();
 
-                return new FieldAccessNode(basestruct, fieldname, new SourceLoc(context.Start.Line, context.Start.Column));
+                return new FieldAccessNode(basestruct, fieldname, MakeSourceLoc(context));
             }
             else if (context.Iden() != null && context.expr().Length == 1 && context.argslist() != null)
             {
@@ -137,7 +176,7 @@ namespace Compiler1
                         args.Add((Expression)Visit(context.argslist().expr(i)));
                     }
                 }
-                return new ImplicitFunCallExprNode(context.Iden().GetText(), e, args, new SourceLoc(context.Start.Line, context.Start.Column));
+                return new ImplicitFunCallExprNode(context.Iden().GetText(), e, args, MakeSourceLoc(context));
             }
             else if (context.argslist() != null)
             {
@@ -150,14 +189,14 @@ namespace Compiler1
                         args.Add((Expression)Visit(context.argslist().expr(i)));
                     }
                 }
-                return new FunCallExprNode(e, args, new SourceLoc(context.Start.Line, context.Start.Column));
+                return new FunCallExprNode(e, args, MakeSourceLoc(context));
             }
             else if (context.expr().Length == 2)
             {
                 Expression array = (Expression)Visit(context.expr(0));
                 Expression idx = (Expression)Visit(context.expr(1));
 
-                return new ArrayIndexNode(array, idx, new SourceLoc(context.Start.Line, context.Start.Column));
+                return new ArrayIndexNode(array, idx, MakeSourceLoc(context));
             }
             else if (context.expr().Length == 1)
             {
@@ -166,7 +205,7 @@ namespace Compiler1
             }
             else if(context.typename() != null)
             {
-                return new NewStructNode(context.typename().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new NewStructNode(context.typename().GetText(), MakeSourceLoc(context));
             }
             else
             {
@@ -180,43 +219,43 @@ namespace Compiler1
             {
                 Expression lhs = (Expression)Visit(context.expr(0));
                 Expression rhs = (Expression)Visit(context.expr(1));
-                return new BinaryExprNode(lhs, rhs, context.multop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new BinaryExprNode(lhs, rhs, context.multop().GetText(), MakeSourceLoc(context));
             }
             else if (context.addop() != null)
             {
                 Expression lhs = (Expression)Visit(context.expr(0));
                 Expression rhs = (Expression)Visit(context.expr(1));
-                return new BinaryExprNode(lhs, rhs, context.addop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new BinaryExprNode(lhs, rhs, context.addop().GetText(), MakeSourceLoc(context));
             }
             else if (context.shiftop() != null)
             {
                 Expression lhs = (Expression)Visit(context.expr(0));
                 Expression rhs = (Expression)Visit(context.expr(1));
-                return new BinaryExprNode(lhs, rhs, context.shiftop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new BinaryExprNode(lhs, rhs, context.shiftop().GetText(), MakeSourceLoc(context));
             }
             else if (context.compop() != null)
             {
                 Expression lhs = (Expression)Visit(context.expr(0));
                 Expression rhs = (Expression)Visit(context.expr(1));
-                return new BinaryExprNode(lhs, rhs, context.compop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new BinaryExprNode(lhs, rhs, context.compop().GetText(), MakeSourceLoc(context));
             }
             else if (context.eqop() != null)
             {
                 Expression lhs = (Expression)Visit(context.expr(0));
                 Expression rhs = (Expression)Visit(context.expr(1));
-                return new BinaryExprNode(lhs, rhs, context.eqop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new BinaryExprNode(lhs, rhs, context.eqop().GetText(), MakeSourceLoc(context));
             }
             else if (context.bitwiseop() != null)
             {
                 Expression lhs = (Expression)Visit(context.expr(0));
                 Expression rhs = (Expression)Visit(context.expr(1));
-                return new BinaryExprNode(lhs, rhs, context.bitwiseop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new BinaryExprNode(lhs, rhs, context.bitwiseop().GetText(), MakeSourceLoc(context));
             }
             else if (context.logicop() != null)
             {
                 Expression lhs = (Expression)Visit(context.expr(0));
                 Expression rhs = (Expression)Visit(context.expr(1));
-                return new BinaryExprNode(lhs, rhs, context.logicop().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+                return new BinaryExprNode(lhs, rhs, context.logicop().GetText(), MakeSourceLoc(context));
             }
             else
             {
@@ -240,7 +279,7 @@ namespace Compiler1
 
             Statement body = (Statement)Visit(context.stmt());
 
-            return new ForNode(var, inlist, body, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new ForNode(var, inlist, body, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitFuncallStmt([NotNull] llangParser.FuncallStmtContext context)
@@ -261,11 +300,11 @@ namespace Compiler1
             {
                 List<Expression> newargs = new List<Expression>(args.Count + 1) { (Expression)Visit(context.expr()) };
                 newargs.AddRange(args);
-                return new ImplicitFunCallStmtNode(context.Iden().GetText(), name, newargs, new SourceLoc(context.Start.Line, context.Start.Column));
+                return new ImplicitFunCallStmtNode(context.Iden().GetText(), name, newargs, MakeSourceLoc(context));
             }
             else
             {
-                return new FunCallStmtNode(name, args, new SourceLoc(context.Start.Line, context.Start.Column));
+                return new FunCallStmtNode(name, args, MakeSourceLoc(context));
             }
 
         }
@@ -290,7 +329,7 @@ namespace Compiler1
 
             Statement body = (Statement)Visit(context.block());
 
-            return new FunDefNode(funname, args, argtypes, rettype, body, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new FunDefNode(funname, args, argtypes, rettype, body, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitGlobalVar([NotNull] llangParser.GlobalVarContext context)
@@ -298,7 +337,7 @@ namespace Compiler1
 
             VarDeclNode n = (VarDeclNode)Visit(context.varDeclStmt());
 
-            return new GlobalVarDefNode(n.name, n.rhs, n.Type, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new GlobalVarDefNode(n.name, n.rhs, n.Type, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitIfstmt([NotNull] llangParser.IfstmtContext context)
@@ -313,13 +352,13 @@ namespace Compiler1
                 elsebody = (Statement)Visit(context.stmt(1));
             }
 
-            return new IfNode(cond, ifbody, elsebody, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new IfNode(cond, ifbody, elsebody, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitLibimport([NotNull] llangParser.LibimportContext context)
         {
 
-            return new LibImportNode(context.Iden().GetText(), new SourceLoc(context.Start.Line, context.Start.Column));
+            return new LibImportNode(context.Iden().GetText(), MakeSourceLoc(context));
         }
 
         public override ASTNode VisitRetstmt([NotNull] llangParser.RetstmtContext context)
@@ -331,7 +370,7 @@ namespace Compiler1
                 ret = (Expression)Visit(context.expr());
             }
 
-            return new ReturnNode(ret, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new ReturnNode(ret, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitStmt([NotNull] llangParser.StmtContext context)
@@ -363,7 +402,7 @@ namespace Compiler1
 
             TypeSymbol ownType = TypeSymbol.STRUCT_SYMBOL(name, 0, fields, null);
 
-            return new StructDefNode(name, ownType, defaultValues, new SourceLoc(context.Start.Line, context.Start.Column)); // Technically useless for Codegen
+            return new StructDefNode(name, ownType, defaultValues, MakeSourceLoc(context)); // Technically useless for Codegen
         }
 
         public override ASTNode VisitStructDecl([NotNull] llangParser.StructDeclContext context)
@@ -375,7 +414,7 @@ namespace Compiler1
             if (context.expr() != null)
                 rhs = (Expression)Visit(context.expr());
 
-            SourceLoc sl = new SourceLoc(context.Start.Line, context.Start.Column);
+            SourceLoc sl = MakeSourceLoc(context);
             return new VarDeclNode(name, rhs, ts, sl);
 
         }
@@ -396,7 +435,7 @@ namespace Compiler1
             if (context.expr() != null)
                 rhs = (Expression)Visit(context.expr());
 
-            return new VarDeclNode(name, rhs, ts, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new VarDeclNode(name, rhs, ts, MakeSourceLoc(context));
         }
 
         public override ASTNode VisitVarlist([NotNull] llangParser.VarlistContext context)
@@ -410,7 +449,13 @@ namespace Compiler1
             Expression cond = (Expression)Visit(context.expr());
             Statement body = (Statement)Visit(context.stmt());
 
-            return new WhileNode(cond, body, new SourceLoc(context.Start.Line, context.Start.Column));
+            return new WhileNode(cond, body, MakeSourceLoc(context));
+        }
+
+
+        public SourceLoc MakeSourceLoc(Antlr4.Runtime.ParserRuleContext context)
+        {
+            return new SourceLoc(context.Start.Line, context.Start.Column);
         }
     }
 }

@@ -36,13 +36,10 @@ namespace Compiler1
 
         private void MakeIntrinsicFunctionsAndVariables()
         {
-            var intrinsics = new Dictionary<string, TypeSymbol>()
+            foreach (var fun in Intrinsics.LIntrinsics)
             {
-                { "print`(int)", TypeSymbol.FUNCTION_SYMBOL("print", "(int)->void", TypeSymbol.VOID_SYMBOL, new List<TypeSymbol>(1) { TypeSymbol.INT_SYMBOL }) },
-                { "atoi`(string)", TypeSymbol.FUNCTION_SYMBOL("atoi", "(string)->int", TypeSymbol.INT_SYMBOL, new List<TypeSymbol>(1) { TypeSymbol.STRING_SYMBOL }) }
-            };
-
-            varTypes.PutAllInScope(intrinsics);
+                varTypes.PutInScope(fun.Key, fun.Value.FunctionSymbol);
+            }
         }
 
         public static TypeSymbol MakeTypeSymbolForString(string s)
@@ -223,8 +220,10 @@ namespace Compiler1
             Visit(n.basestruct);
             if (n.basestruct.Type.Kind == TypeSymbol.TypeKind.POINTER)
                 n.Type = MakeTypeSymbolForString(n.basestruct.Type.Name).Fields[n.fieldname];
-            else if(n.basestruct.Type.Kind == TypeSymbol.TypeKind.STRUCT)
+            else if (n.basestruct.Type.Kind == TypeSymbol.TypeKind.STRUCT)
                 n.Type = n.basestruct.Type.Fields[n.fieldname];
+            else if (n.basestruct.Type.Kind == TypeSymbol.TypeKind.ENUM)
+                n.Type = TypeSymbol.INT_SYMBOL;
             return null;
         }
 
@@ -240,29 +239,35 @@ namespace Compiler1
             return null;
         }
 
-        public override object VisitFunCallExprNode(FunCallExprNode n)
+        private TypeSymbol DoInfer(TypeSymbol nametype, List<Expression> args)
         {
-            Visit(n.name);
-            var nametype = n.name.Type;
             if (nametype.Kind == TypeSymbol.TypeKind.INFER && nametype.inferOptions != null && nametype.inferOptions.Count > 0)
             {
                 foreach (var ts in nametype.inferOptions)
                 {
                     bool ok = true;
-                    for (int i = 0; i < ts.ParameterTypes.Count; i++)
+                    for (int i = 0; i < Math.Min(ts.ParameterTypes.Count, args.Count); i++)
                     {
-                        ok &= n.args[i].Type.Match(ts.ParameterTypes[i]);
+                        ok &= args[i].Type.Match(ts.ParameterTypes[i]);
                     }
-                    if(ok)
+                    if (ok)
                     {
-                        n.name.Type = ts;
-                        break;
+                        return ts;
                     }
                 }
             }
+            return nametype;
+        }
+
+        public override object VisitFunCallExprNode(FunCallExprNode n)
+        {
+            Visit(n.name);
             foreach (Expression e in n.args)
                 Visit(e);
+            n.name.Type = DoInfer(n.name.Type, n.args);
+
             n.Type = n.name.Type.ReturnType;
+
             return null;
         }
 
@@ -271,9 +276,10 @@ namespace Compiler1
             Visit(n.name);
             foreach (Expression e in n.args)
                 Visit(e);
+            n.name.Type = DoInfer(n.name.Type, n.args);
 
             n.fullname = n.name.Type.Name + n.funname;
-            n.funsig = varTypes.IsInScope(n.fullname);
+            n.funsig = varTypes.IsInScope(TypeSymbol.MakeFunctionName(n.fullname, n.args));
             n.Type = n.funsig.ReturnType;
 
             return null;
@@ -284,6 +290,8 @@ namespace Compiler1
             Visit(n.name);
             foreach (Expression e in n.args)
                 Visit(e);
+            n.name.Type = DoInfer(n.name.Type, n.args);
+
             return null;
         }
 
@@ -292,8 +300,11 @@ namespace Compiler1
             Visit(n.name);
             foreach (Expression e in n.args)
                 Visit(e);
+            n.name.Type = DoInfer(n.name.Type, n.args);
+
             n.fullname = n.name.Type.Name + n.funname;
-            n.funsig = varTypes.IsInScope(n.fullname);
+            n.funsig = varTypes.IsInScope(TypeSymbol.MakeFunctionName(n.fullname, n.args));
+
             return null;
         }
 
@@ -343,8 +354,8 @@ namespace Compiler1
 
         public override object VisitIdenExprNode(IdenExprNode n)
         {
-            
             n.Type = varTypes.IsInScope(n.name);
+
             if(n.Type == null)
             {
                 var funmatches = varTypes.GetPredicateMatches((s, ts) => ts.FunctionName != null && ts.FunctionName.StartsWith(n.name+"`"));
@@ -352,18 +363,12 @@ namespace Compiler1
                 {
                     n.Type = funmatches.ElementAt(0);
                 }
-                else
+                else if(funmatches.Count > 1)
                 {
                     n.Type = TypeSymbol.INFER_FROM_SYMBOL(n.name, funmatches);
                 }
             }
-            //var t = varTypes.IsInScope(n.name);
-            //n.Type = t == null ? funmatches.ElementAt(0) : t;
-            //if (funmatches.Count > 1)
-            //{
-            //    n.Type = TypeSymbol.INFER_FROM_SYMBOL(n.name, funmatches);
-            //}
-
+            
             return null;
         }
 
@@ -469,6 +474,13 @@ namespace Compiler1
             n.Type = ts;
 
             KnownTypes.PutInScope(n.name, ts);
+
+            return null;
+        }
+
+        public override object VisitEnumDefNode(EnumDefNode n)
+        {
+            varTypes.PutInScope(n.enumname, n.Type);
 
             return null;
         }

@@ -108,7 +108,7 @@ assignStmt
 	;
 
 deferstmt
-	: 'defer' '(' expr ')'
+	: 'defer' '(' expr ')' ';'
 	;
 	
 assignop
@@ -117,7 +117,7 @@ assignop
 
 funcallStmt
 	: expr '(' argslist ')' ';'
-	| expr ':' Iden '(' argslist ')'
+	| expr ':' Iden '(' argslist ')' ';'
 	;
 
 argslist

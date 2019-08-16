@@ -12,6 +12,7 @@ namespace Compiler1
         Result VisitProgNode(ProgNode n);
         Result VisitFunDefNode(FunDefNode n);
         Result VisitGlobalVarDefNode(GlobalVarDefNode n);
+        Result VisitEnumDefNode(EnumDefNode n);
         Result VisitStructDefNode(StructDefNode n);
         Result VisitLibImportNode(LibImportNode n);
         Result VisitVarDeclNode(VarDeclNode n);

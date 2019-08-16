@@ -15,6 +15,7 @@ namespace Compiler1
             STRUCT,
             FUNCTION,
             POINTER,
+            ENUM,
             INFER
         }
 
@@ -22,10 +23,10 @@ namespace Compiler1
         public static readonly TypeSymbol FLOAT_SYMBOL = new TypeSymbol("float", TypeKind.PRIMITIVE, 8); // 8 byte size floatingpoint number
         public static readonly TypeSymbol VOID_SYMBOL = new TypeSymbol("void", TypeKind.PRIMITIVE, 0); // 0 size void type
         public static readonly TypeSymbol BOOL_SYMBOL = new TypeSymbol("bool", TypeKind.PRIMITIVE, 1); // 1 byte bool
-        public static readonly TypeSymbol STRING_SYMBOL = new TypeSymbol("string", TypeKind.STRUCT, 16, new Dictionary<string, TypeSymbol>(2) { { "length", INT_SYMBOL }, { "_str", ARRAY_SYMBOL(INT_SYMBOL) } }, new List<int>() { 0, 8 }); // { int length, [char] _str }
+        public static readonly TypeSymbol STRING_SYMBOL = new TypeSymbol("string", TypeKind.STRUCT, 16, new Dictionary<string, TypeSymbol>(2) { { "length", INT_SYMBOL }, { "_str", POINTER_SYMBOL(INT_SYMBOL) } }, new List<int>() { 0, 8 }); // { int length, [char] _str }
 
         public static TypeSymbol POINTER_SYMBOL(TypeSymbol type)
-            => new TypeSymbol($"ptr::{type.Name}", TypeKind.POINTER, 8, type.ArrayType);
+            => new TypeSymbol($"ptr::{type.Name}", TypeKind.POINTER, 8, type);
 
         public static TypeSymbol INFER_SYMOBOL(string name) 
             => new TypeSymbol(name, TypeKind.INFER, 0); // Type to be determined, name=typename in source
@@ -42,6 +43,9 @@ namespace Compiler1
         public static TypeSymbol STRUCT_SYMBOL(string name, int length, Dictionary<string, TypeSymbol> fields, List<int> offsets)
             => new TypeSymbol(name, TypeKind.STRUCT, length, fields, offsets);
 
+        public static TypeSymbol ENUM_SYMBOL(string name, Dictionary<string, long> items)
+            => new TypeSymbol(name, TypeKind.ENUM, items);
+
         //@TODO: Maybe make this a Scope, so that types can exist on certain levels, and not only globally
         public readonly string Name;
         public readonly string FunctionName;
@@ -52,6 +56,7 @@ namespace Compiler1
         public readonly List<TypeSymbol> ParameterTypes;
         public readonly Dictionary<string, TypeSymbol> Fields;
         public readonly List<int> Offsets;
+        public readonly Dictionary<string, long> EnumItems;
         public readonly ICollection<TypeSymbol> inferOptions;
 
         public TypeSymbol(string name, TypeKind kind, int length, TypeSymbol arrayof, TypeSymbol rettype, List<TypeSymbol> parameters, Dictionary<string, TypeSymbol> fields, List<int> offsets, ICollection<TypeSymbol> options)
@@ -65,7 +70,6 @@ namespace Compiler1
             Offsets = offsets;
             Length = length;
             inferOptions = options;
-
         }
 
         public TypeSymbol(string name, TypeKind kind, int len) : this(name, kind, len, null, null, null, null, null, null) { }
@@ -73,6 +77,10 @@ namespace Compiler1
         //public TypeSymbol(string name, TypeKind kind, TypeSymbol rettype, List<TypeSymbol> parameters) : this(name, kind, 8, null, rettype, parameters, null, null, null) { }
         public TypeSymbol(string name, TypeKind kind, int len, Dictionary<string, TypeSymbol> fields, List<int> offsets) : this(name, kind, len, null, null, null, fields, offsets, null) { }
         public TypeSymbol(string name, TypeKind kind, ICollection<TypeSymbol> options) : this(name, kind, 0, null, null, null, null, null, options) { }
+        public TypeSymbol(string name, TypeKind kind, Dictionary<string, long> items) : this(name, kind, items.Count * 8)
+        {
+            EnumItems = items;
+        }
         public TypeSymbol(string funname, string typename, TypeKind kind, TypeSymbol rettype, List<TypeSymbol> parameters) : this(typename, kind, 8, null, rettype, parameters, null, null, null)
         {
             if (Kind == TypeKind.FUNCTION)

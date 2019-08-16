@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Compiler1
 {
@@ -18,9 +16,11 @@ namespace Compiler1
         public int Check(ASTNode root)
         {
             var intrinsics = new Scope<TypeSymbol>();
-            intrinsics.PutInScope("print`(int)", TypeSymbol.FUNCTION_SYMBOL("print", "(int)->void", TypeSymbol.VOID_SYMBOL, new List<TypeSymbol>() { TypeSymbol.INT_SYMBOL }));
-            intrinsics.PutInScope("print`(string)", TypeSymbol.FUNCTION_SYMBOL("print", "(string)->void", TypeSymbol.VOID_SYMBOL, new List<TypeSymbol>() { TypeSymbol.STRING_SYMBOL }));
-            //intrinsics.PutInScope("atoi`(string)", TypeSymbol.FUNCTION_SYMBOL("atoi", "(string)->int", TypeSymbol.INT_SYMBOL, new List<TypeSymbol>(1) { TypeSymbol.STRING_SYMBOL }));
+
+            foreach (var fun in Intrinsics.LIntrinsics)
+            {
+                intrinsics.PutInScope(fun.Key, fun.Value.FunctionSymbol);
+            }
 
             TypeChecker tc = new TypeChecker(this, intrinsics);
             tc.Visit(root);
@@ -70,7 +70,8 @@ namespace Compiler1
             {
                 Visit(n.array);
                 Visit(n.index);
-                semanticChecker.CheckAndReport(n.array.Type.Kind == TypeSymbol.TypeKind.ARRAY, n.sourceLoc, "Array not typeof Array");
+
+                semanticChecker.CheckAndReport(n.array.Type.Kind == TypeSymbol.TypeKind.POINTER || n.array.Type.Kind == TypeSymbol.TypeKind.ARRAY, n.sourceLoc, "Trying to index into illegal type");
                 semanticChecker.CheckAndReport(n.index.Type.Equals(TypeSymbol.INT_SYMBOL), n.sourceLoc, "Index not typeof int");
                 return null;
             }
@@ -164,6 +165,10 @@ namespace Compiler1
                 {
                     var structsymbol = TypeMaker.MakeTypeSymbolForString(n.basestruct.Type.Name);
                     semanticChecker.CheckAndReport(structsymbol.Fields.ContainsKey(n.fieldname), n.sourceLoc, $"Undeclared Field {n.fieldname} in {structsymbol.Name}");
+                }
+                else if(n.basestruct.Type.Kind == TypeSymbol.TypeKind.ENUM)
+                {
+                    semanticChecker.CheckAndReport(n.basestruct.Type.EnumItems.ContainsKey(n.fieldname), n.sourceLoc, $"Enum {n.basestruct.Type.Name} has no item {n.fieldname}");
                 }
                 else
                 {
@@ -477,6 +482,13 @@ namespace Compiler1
             {
                 Visit(n.rhs);
                 semanticChecker.CheckAndReport(varTypes.PutInScope(n.name, n.Type), n.sourceLoc, $"Variable {n.name} already declared");
+                return null;
+            }
+
+            public override object VisitEnumDefNode(EnumDefNode n)
+            {
+                varTypes.PutInScope(n.enumname, n.Type);
+
                 return null;
             }
 

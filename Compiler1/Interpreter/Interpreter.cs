@@ -13,150 +13,12 @@ namespace Compiler1
         Scope<LData> globals;
         Scope<LData> current;
 
-        Dictionary<string, Func<ICollection<LData>, LData>> builtins;
-
         public Interpreter(ASTNode root)
         {
             Root = root;
             Functions = new Dictionary<string, FunDefNode>();
             Types = new Dictionary<string, TypeSymbol>();
             globals = new Scope<LData>();
-
-            SetupBuiltins();
-        }
-
-        void SetupBuiltins()
-        {
-            builtins = new Dictionary<string, Func<ICollection<LData>, LData>>();
-
-            builtins["print`(int)"] = par =>
-            {
-                Console.WriteLine(par.First().GetValue());
-                return LNull.NULL;
-            };
-
-            builtins["print`(int, int)"] = par =>
-            {
-                Console.WriteLine(Convert.ToString((long)par.ElementAt(0).GetValue(), (int)par.ElementAt(1).GetValue()));
-
-                return LNull.NULL;
-            };
-
-            builtins["print`(float)"] = par =>
-            {
-                Console.WriteLine(par.First().GetValue());
-                return LNull.NULL;
-            };
-
-            builtins["print`(bool)"] = par =>
-            {
-                Console.WriteLine(par.First().GetValue());
-                return LNull.NULL;
-            };
-
-            builtins["print`(string)"] = par =>
-            {
-                Console.WriteLine(new string(par.First().GetValue()._str));
-                return LNull.NULL;
-            };
-
-            builtins["readInt`()"] = par =>
-            {
-                return new LInt(long.Parse(Console.ReadLine()));
-            };
-
-            builtins["readFloat`()"] = par =>
-            {
-                return new LFloat(double.Parse(Console.ReadLine()));
-            };
-
-            builtins["readString`()"] = par =>
-            {
-                return new LString(Console.ReadLine());
-            };
-
-            builtins["openFile`(string, int, int)"] = par =>
-            {
-                string fname = new string(par.ElementAt(0).GetValue()._str);
-                var fmode = (FileMode)par.ElementAt(1).GetValue();
-                var faccess = (FileAccess)par.ElementAt(2).GetValue();
-
-                var fs = File.Open(fname, fmode, faccess);
-                
-                return new LInt(fs.SafeFileHandle.DangerousGetHandle().ToInt64());
-            };
-
-            builtins["readFromFile`(int, int, int)"] = par =>
-            {
-                long fhandle = par.ElementAt(0).GetValue();
-                var readOffset = par.ElementAt(1).GetValue();
-                var readLength = par.ElementAt(2).GetValue();
-
-
-                var fs = new FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(new IntPtr(fhandle), true), FileAccess.Read);
-                var bytes = new byte[readLength];
-                fs.Read(bytes, readOffset, readLength);
-
-                var lInts = new LData[readLength];
-                for (int i = 0; i < readLength; i++)
-                {
-                    lInts[i] = new LInt(bytes[i]);
-                }
-
-                return new LArray(lInts);
-            };
-
-            builtins["writeToFile`(int, [int])"] = par =>
-            {
-                long fhandle = par.ElementAt(0).GetValue();
-                var bytesToWrite = par.ElementAt(1).GetValue();
-                
-
-                var fs = new FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(new IntPtr(fhandle), true), FileAccess.Write);
-                foreach (var b in bytesToWrite._arr)
-                {
-                    fs.WriteByte((byte)b);
-                }
-
-                return new LInt(bytesToWrite.length);
-            };
-
-            builtins["writeToFile`(int, string)"] = par =>
-            {
-                long fhandle = par.ElementAt(0).GetValue();
-                var stringToWrite = par.ElementAt(1).GetValue();
-
-                var fs = new FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(new IntPtr(fhandle), true), FileAccess.Write);
-                foreach (var b in stringToWrite._str)
-                {
-                    fs.WriteByte((byte)b);
-                }
-
-                return new LInt(stringToWrite.length);
-            };
-
-            builtins["closeFile`(int)"] = par =>
-            {
-                long fhandle = par.ElementAt(0).GetValue();
-
-                var fs = new FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(new IntPtr(fhandle), true), FileAccess.Read);
-                fs.Flush();
-                fs.Close();
-
-                return LNull.NULL;
-            };
-
-            builtins["time`()"] = par =>
-            {
-                var origin = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-                
-                return new LFloat(DateTime.Now.ToUniversalTime().Subtract(origin).TotalSeconds);
-            };
-
-            builtins["exit`(int)"] = par =>
-            {
-                throw new ExecutionTerminatedException(par.First().GetValue());
-            };
         }
 
         public void Run()
@@ -174,13 +36,11 @@ namespace Compiler1
             //Console.WriteLine(globals.ToString());
         }
         
-
-
         public LData CallFunction(string name, ICollection<LData> parameters)
         {
             //Console.WriteLine($"Calling: {name}");
-            if (builtins.ContainsKey(name)) {
-                return builtins[name](parameters);
+            if (Intrinsics.LIntrinsics.ContainsKey(name)) {
+                return Intrinsics.LIntrinsics[name].InterpImplementation(parameters);
             }
 
             current = globals.GoDown();
@@ -241,10 +101,8 @@ namespace Compiler1
             {
                 LData lhs = Visit(n.lhs);
                 LData rhs = Visit(n.rhs);
-
                 lhs.SetValue(rhs);
-
-                return lhs;
+                return null;
             }
 
             public override LData VisitAugAssignNode(AugAssignNode n)
@@ -651,6 +509,13 @@ namespace Compiler1
             public override object VisitGlobalVarDefNode(GlobalVarDefNode n)
             {
                 interp.globals.PutInScope(n.name, interp.Eval(n.rhs));
+                return null;
+            }
+
+            public override object VisitEnumDefNode(EnumDefNode n)
+            {
+                interp.globals.PutInScope(n.enumname, new LEnum(n.enumname, n.Type.EnumItems));
+
                 return null;
             }
         }

@@ -77,6 +77,11 @@ namespace Compiler1
             return default(T);
         }
 
+        public virtual T VisitEnumDefNode(EnumDefNode n)
+        {
+            return default(T);
+        }
+
         public virtual T VisitFieldAccessNode(FieldAccessNode n)
         {
 

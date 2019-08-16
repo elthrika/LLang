@@ -185,6 +185,23 @@ namespace Compiler1
         }
     }
 
+    public class EnumDefNode : Statement
+    {
+        public string enumname;
+        public TypeSymbol Type;
+
+        public EnumDefNode(string name, TypeSymbol type, SourceLoc sl) : base(ASTKind.EnumDef, sl)
+        {
+            enumname = name;
+            Type = type;
+        } 
+
+        public override T Accept<T>(IASTVisitor<T> visitor)
+        {
+            return visitor.VisitEnumDefNode(this);
+        }
+    }
+
     public class GlobalVarDefNode : Statement
     {
 

@@ -63,6 +63,7 @@
     <Compile Include="CodeGen\MIPS\MIPSRegisterManager.cs" />
     <Compile Include="Interpreter\Interpreter.cs" />
     <Compile Include="Interpreter\LData.cs" />
+    <Compile Include="Intrinsics\Intrinsics.cs" />
     <Compile Include="Parser\llangBaseVisitor.cs" />
     <Compile Include="Parser\llangLexer.cs" />
     <Compile Include="Parser\llangListener.cs" />
@@ -81,6 +82,8 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="LCode\faults.l" />
+    <None Include="LCode\fib.l" />
+    <None Include="LCode\files.l" />
     <None Include="LCode\linked_list.l" />
     <None Include="LCode\test.l" />
     <None Include="packages.config" />
