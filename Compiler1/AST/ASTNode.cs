@@ -352,13 +352,13 @@ namespace Compiler1
     public class IfNode : Statement
     {
         public Expression test;
-        public Statement body;
+        public Statement ifbody;
         public Statement elsebody;
 
         public IfNode(Expression test, Statement body, Statement elsebody, SourceLoc sl) : base(ASTKind.If, sl)
         {
             this.test = test;
-            this.body = body;
+            this.ifbody = body;
             this.elsebody = elsebody;
         }
 
@@ -543,7 +543,7 @@ namespace Compiler1
 
         public override T Accept<T>(IASTVisitor<T> visitor)
         {
-            return visitor.VisitConstListExprNode(this);
+            return visitor.VisitVarListExprNode(this);
         }
     }
 
@@ -558,7 +558,7 @@ namespace Compiler1
 
         public override T Accept<T>(IASTVisitor<T> visitor)
         {
-            return visitor.VisitListExprNode(this);
+            return visitor.VisitConstListExprNode(this);
         }
     }
 

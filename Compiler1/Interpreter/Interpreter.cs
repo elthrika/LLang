@@ -283,7 +283,7 @@ namespace Compiler1
 
             }
 
-            public override LData VisitConstListExprNode(VarListExprNode n)
+            public override LData VisitVarListExprNode(VarListExprNode n)
             {
                 LData upper = Visit(n.upper);
                 LData lower = Visit(n.lower);
@@ -390,7 +390,7 @@ namespace Compiler1
                 LData cond = Visit(n.test);
                 if(cond.GetValue() == true)
                 {
-                    Visit(n.body);
+                    Visit(n.ifbody);
                 }
                 else if(n.elsebody != null)
                 {
@@ -421,7 +421,7 @@ namespace Compiler1
                 return base.VisitLibImportNode(n);
             }
 
-            public override LData VisitListExprNode(ConstListExprNode n)
+            public override LData VisitConstListExprNode(ConstListExprNode n)
             {
                 var arr = new LArray(n.ListValue.Select(e => Visit(e)).ToArray());
                 return arr;

@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 namespace Compiler1
 {
+#pragma warning disable CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
     public class TypeSymbol : ICloneable
+#pragma warning restore CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
     {
         public enum TypeKind
         {
@@ -19,14 +21,16 @@ namespace Compiler1
             INFER
         }
 
-        public static readonly TypeSymbol INT_SYMBOL = new TypeSymbol("int", TypeKind.PRIMITIVE, 8); // 8 byte size integer
-        public static readonly TypeSymbol FLOAT_SYMBOL = new TypeSymbol("float", TypeKind.PRIMITIVE, 8); // 8 byte size floatingpoint number
+        public static int WORD_SIZE = 8;
+
+        public static readonly TypeSymbol INT_SYMBOL = new TypeSymbol("int", TypeKind.PRIMITIVE, WORD_SIZE); // WORD_SIZE byte size integer
+        public static readonly TypeSymbol FLOAT_SYMBOL = new TypeSymbol("float", TypeKind.PRIMITIVE, WORD_SIZE); // WORD_SIZE byte size floatingpoint number
         public static readonly TypeSymbol VOID_SYMBOL = new TypeSymbol("void", TypeKind.PRIMITIVE, 0); // 0 size void type
         public static readonly TypeSymbol BOOL_SYMBOL = new TypeSymbol("bool", TypeKind.PRIMITIVE, 1); // 1 byte bool
-        public static readonly TypeSymbol STRING_SYMBOL = new TypeSymbol("string", TypeKind.STRUCT, 16, new Dictionary<string, TypeSymbol>(2) { { "length", INT_SYMBOL }, { "_str", POINTER_SYMBOL(INT_SYMBOL) } }, new List<int>() { 0, 8 }); // { int length, [char] _str }
+        public static readonly TypeSymbol STRING_SYMBOL = new TypeSymbol("string", TypeKind.STRUCT, WORD_SIZE * 2, new Dictionary<string, (TypeSymbol, int)>(2) { { "length", (INT_SYMBOL, 0) }, { "_str", (POINTER_SYMBOL(INT_SYMBOL), WORD_SIZE) } }); // { int length, [char] _str }
 
         public static TypeSymbol POINTER_SYMBOL(TypeSymbol type)
-            => new TypeSymbol($"ptr::{type.Name}", TypeKind.POINTER, 8, type);
+            => new TypeSymbol(type.Name, TypeKind.POINTER, WORD_SIZE, type);
 
         public static TypeSymbol INFER_SYMOBOL(string name) 
             => new TypeSymbol(name, TypeKind.INFER, 0); // Type to be determined, name=typename in source
@@ -35,13 +39,13 @@ namespace Compiler1
             => new TypeSymbol(name, TypeKind.INFER, options);
 
         public static TypeSymbol ARRAY_SYMBOL(TypeSymbol arraytype) 
-            => new TypeSymbol("["+arraytype.Name+"]", TypeKind.ARRAY, 16, arraytype, null, null, new Dictionary<string, TypeSymbol>(2) { { "length", INT_SYMBOL }, { "_arr", POINTER_SYMBOL(arraytype) } }, new List<int>() { 0, 8 }, null); // { int length, T* array }
+            => new TypeSymbol("["+arraytype.Name+"]", TypeKind.ARRAY, WORD_SIZE * 2, arraytype, null, null, new Dictionary<string, (TypeSymbol, int)>(2) { { "length", (INT_SYMBOL, 0) }, { "_arr", (POINTER_SYMBOL(arraytype), WORD_SIZE) } }, null); // { int length, T* array }
 
         public static TypeSymbol FUNCTION_SYMBOL(string funname, string typename, TypeSymbol rettype, List<TypeSymbol> paramtypes)
             => new TypeSymbol(funname, typename, TypeKind.FUNCTION, rettype, paramtypes);
 
-        public static TypeSymbol STRUCT_SYMBOL(string name, int length, Dictionary<string, TypeSymbol> fields, List<int> offsets)
-            => new TypeSymbol(name, TypeKind.STRUCT, length, fields, offsets);
+        public static TypeSymbol STRUCT_SYMBOL(string name, int length, Dictionary<string, (TypeSymbol, int)> fields)
+            => new TypeSymbol(name, TypeKind.STRUCT, length, fields);
 
         public static TypeSymbol ENUM_SYMBOL(string name, Dictionary<string, long> items)
             => new TypeSymbol(name, TypeKind.ENUM, items);
@@ -54,12 +58,12 @@ namespace Compiler1
         public readonly TypeSymbol ArrayType;
         public readonly TypeSymbol ReturnType;
         public readonly List<TypeSymbol> ParameterTypes;
-        public readonly Dictionary<string, TypeSymbol> Fields;
-        public readonly List<int> Offsets;
+        public readonly Dictionary<string, (TypeSymbol, int)> Fields;
+        //public readonly List<int> Offsets;
         public readonly Dictionary<string, long> EnumItems;
         public readonly ICollection<TypeSymbol> inferOptions;
 
-        public TypeSymbol(string name, TypeKind kind, int length, TypeSymbol arrayof, TypeSymbol rettype, List<TypeSymbol> parameters, Dictionary<string, TypeSymbol> fields, List<int> offsets, ICollection<TypeSymbol> options)
+        public TypeSymbol(string name, TypeKind kind, int length, TypeSymbol arrayof, TypeSymbol rettype, List<TypeSymbol> parameters, Dictionary<string, (TypeSymbol, int)> fields, ICollection<TypeSymbol> options)
         {
             Name = name;
             Kind = kind;
@@ -67,21 +71,19 @@ namespace Compiler1
             ReturnType = rettype;
             ParameterTypes = parameters;
             Fields = fields;
-            Offsets = offsets;
             Length = length;
             inferOptions = options;
         }
 
-        public TypeSymbol(string name, TypeKind kind, int len) : this(name, kind, len, null, null, null, null, null, null) { }
-        public TypeSymbol(string name, TypeKind kind, int len, TypeSymbol arrayof) : this(name, kind, len, arrayof, null, null, null, null, null) { }
-        //public TypeSymbol(string name, TypeKind kind, TypeSymbol rettype, List<TypeSymbol> parameters) : this(name, kind, 8, null, rettype, parameters, null, null, null) { }
-        public TypeSymbol(string name, TypeKind kind, int len, Dictionary<string, TypeSymbol> fields, List<int> offsets) : this(name, kind, len, null, null, null, fields, offsets, null) { }
-        public TypeSymbol(string name, TypeKind kind, ICollection<TypeSymbol> options) : this(name, kind, 0, null, null, null, null, null, options) { }
-        public TypeSymbol(string name, TypeKind kind, Dictionary<string, long> items) : this(name, kind, items.Count * 8)
+        public TypeSymbol(string name, TypeKind kind, int len) : this(name, kind, len, null, null, null, null, null) { }
+        public TypeSymbol(string name, TypeKind kind, int len, TypeSymbol arrayof) : this(name, kind, len, arrayof, null, null, null, null) { }
+        public TypeSymbol(string name, TypeKind kind, int len, Dictionary<string, (TypeSymbol, int)> fields) : this(name, kind, len, null, null, null, fields, null) { }
+        public TypeSymbol(string name, TypeKind kind, ICollection<TypeSymbol> options) : this(name, kind, 0, null, null, null, null, options) { }
+        public TypeSymbol(string name, TypeKind kind, Dictionary<string, long> items) : this(name, kind, items.Count * WORD_SIZE)
         {
             EnumItems = items;
         }
-        public TypeSymbol(string funname, string typename, TypeKind kind, TypeSymbol rettype, List<TypeSymbol> parameters) : this(typename, kind, 8, null, rettype, parameters, null, null, null)
+        public TypeSymbol(string funname, string typename, TypeKind kind, TypeSymbol rettype, List<TypeSymbol> parameters) : this(typename, kind, WORD_SIZE, null, rettype, parameters, null, null)
         {
             if (Kind == TypeKind.FUNCTION)
             {
@@ -131,8 +133,7 @@ namespace Compiler1
         public object Clone()
         {
             List<TypeSymbol> parametertypes = null;
-            Dictionary<string, TypeSymbol> fields = null;
-            List<int> offsets = null;
+            Dictionary<string, (TypeSymbol, int)> fields = null;
             List<TypeSymbol> options = null;
 
             if (ParameterTypes != null)
@@ -145,18 +146,10 @@ namespace Compiler1
             }
             if (Fields != null)
             {
-                fields = new Dictionary<string, TypeSymbol>(Fields.Count);
-                foreach (KeyValuePair<string, TypeSymbol> s in Fields)
+                fields = new Dictionary<string, (TypeSymbol, int)>(Fields.Count);
+                foreach (KeyValuePair<string, (TypeSymbol, int)> s in Fields)
                 {
-                    fields.Add((string)s.Key.Clone(), (TypeSymbol)s.Value.Clone());
-                }
-            }
-            if (Offsets != null)
-            {
-                offsets = new List<int>(Offsets.Count);
-                foreach (int i in Offsets)
-                {
-                    offsets.Add(i);
+                    fields.Add((string)s.Key.Clone(), ((TypeSymbol)s.Value.Item1.Clone(), s.Value.Item2));
                 }
             }
             if(inferOptions != null)
@@ -168,7 +161,7 @@ namespace Compiler1
                 }
             }
 
-            return new TypeSymbol(Name, Kind, Length, (TypeSymbol)ArrayType?.Clone(), (TypeSymbol)ReturnType?.Clone(), parametertypes, fields, offsets, options); ;
+            return new TypeSymbol(Name, Kind, Length, (TypeSymbol)ArrayType?.Clone(), (TypeSymbol)ReturnType?.Clone(), parametertypes, fields, options); ;
         }
 
         public static string MakeFunctionName(string name, ICollection<TypeSymbol> parameters)

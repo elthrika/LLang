@@ -388,19 +388,19 @@ namespace Compiler1
         {
             string name = context.Iden().GetText();
             List<Expression> defaultValues = new List<Expression>();
-            Dictionary<string, TypeSymbol> fields = new Dictionary<string, TypeSymbol>();
+            var fields = new Dictionary<string, (TypeSymbol, int)>();
 
             if (context.structDeclList() != null)
             {
                 for (int i = 0; i < context.structDeclList().ChildCount; i++)
                 {
                     VarDeclNode s = (VarDeclNode)Visit(context.structDeclList().GetChild(i));
-                    fields.Add(s.name, s.Type);
+                    fields.Add(s.name, (s.Type, 0));
                     defaultValues.Add(s.rhs);
                 }
             }
 
-            TypeSymbol ownType = TypeSymbol.STRUCT_SYMBOL(name, 0, fields, null);
+            TypeSymbol ownType = TypeSymbol.STRUCT_SYMBOL(name, 0, fields);
 
             return new StructDefNode(name, ownType, defaultValues, MakeSourceLoc(context)); // Technically useless for Codegen
         }

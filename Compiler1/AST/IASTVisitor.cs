@@ -29,13 +29,13 @@ namespace Compiler1
         Result VisitIntExprNode(IntExprNode n);
         Result VisitFloatExprNode(FloatExprNode n);
         Result VisitStringExprNode(StringExprNode n);
-        Result VisitListExprNode(ConstListExprNode n);
+        Result VisitConstListExprNode(ConstListExprNode n);
         Result VisitUnaryExprNode(UnaryExprNode n);
         Result VisitBinaryExprNode(BinaryExprNode n);
         Result VisitFunCallExprNode(FunCallExprNode n);
         Result VisitImplicitFunCallExprNode(ImplicitFunCallExprNode n);
         Result VisitImplicitFunCallStmtNode(ImplicitFunCallStmtNode n);
-        Result VisitConstListExprNode(VarListExprNode n);
+        Result VisitVarListExprNode(VarListExprNode n);
         Result VisitArrayIndexNode(ArrayIndexNode n);
         Result VisitFieldAccessNode(FieldAccessNode n);
         Result VisitNewStructNode(NewStructNode n);

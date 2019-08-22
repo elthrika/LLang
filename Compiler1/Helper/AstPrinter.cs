@@ -78,8 +78,8 @@ namespace Compiler1
             Indent();
             for (int i = 0; i < n.Type.Fields.Count; i++)
             {
-                KeyValuePair<string, TypeSymbol> m = n.Type.Fields.ElementAt(i);
-                WriteLine(m.Key + ":" + m.Value + "  +" + n.Type.Offsets[i]);
+                var m = n.Type.Fields.ElementAt(i);
+                WriteLine(m.Key + ":" + m.Value.Item1 + "  +" + m.Value.Item2);
             }
             Dedent();
 
@@ -164,7 +164,7 @@ namespace Compiler1
             WriteLine(n.kind);
             Indent();
             Visit(n.test);
-            Visit(n.body);
+            Visit(n.ifbody);
             Visit(n.elsebody);
             Dedent();
 
@@ -217,7 +217,7 @@ namespace Compiler1
             return null;
         }
 
-        public object VisitListExprNode(ConstListExprNode n)
+        public object VisitConstListExprNode(ConstListExprNode n)
         {
             WriteLine(n.kind);
             Indent();
@@ -263,7 +263,7 @@ namespace Compiler1
             return null;
         }
 
-        public object VisitConstListExprNode(VarListExprNode n)
+        public object VisitVarListExprNode(VarListExprNode n)
         {
             WriteLine(n.kind + " - " + n.Type);
             Indent();

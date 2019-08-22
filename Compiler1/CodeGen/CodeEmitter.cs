@@ -22,14 +22,14 @@ namespace Compiler1
         }
         
         private int lablnumber = 0;
-        public string GetUniqueLabel()
+        public virtual string GetUniqueLabel()
         {
-            return "labl" + (lablnumber++) + ":";
+            return "labl" + (lablnumber++);
         }
 
-        public string GetLabel(string l)
+        public virtual string GetLabel(string l)
         {
-            return l + ":";
+            return l;
         }
     }
 }

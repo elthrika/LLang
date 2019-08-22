@@ -11,118 +11,111 @@ namespace Compiler1
         MIPSCodeEmitter emit;
         MIPSRegisterManager rm;
 
-        Scope<int> vars;
-
-        private bool lhsexpr;
+        Scope<Either<MIPSRegister, short>> vars;
 
         public MIPSCodeGenerator(string outfile)
         {
             emit = new MIPSCodeEmitter(outfile);
             rm = new MIPSRegisterManager();
             rm.InitRegisters();
-            vars = new Scope<int>();
+            vars = new Scope<Either<MIPSRegister, short>>();
         }
 
-        public MIPSRegister Gen(ASTNode n, bool lhsexpr)
+        public MIPSRegister Gen(ASTNode n)
         {
-            this.lhsexpr = lhsexpr;
             return Visit(n);
         }
 
         public override MIPSRegister VisitArrayIndexNode(ArrayIndexNode n)
         {
-            MIPSRegister array = Gen(n.array, true);
-            MIPSRegister index = Gen(n.index, false);
-            MIPSRegister reg = rm.GetRegister();
-
-            int size = n.array.Type.ArrayType.Length;
-            emit.Emit("li", reg, size);
-            emit.Emit("mul", index, index, reg);
-            emit.Emit("add", reg, array, index); //adress of element
-
-            if (!lhsexpr) // it's a dereference, not assignment
-                emit.EmitLoadStore("lw", reg, 0, reg);
-
-            rm.ReleaseRegister(array);
-            rm.ReleaseRegister(index);
-            return reg;
+            return base.VisitArrayIndexNode(n);
         }
 
         public override MIPSRegister VisitAssignNode(AssignNode n)
         {
-            MIPSRegister rhs = Gen(n.rhs, false);
-            MIPSRegister lhs = Gen(n.lhs, true);
-
-            emit.EmitLoadStore("sw", rhs, 0, lhs);
-
-            rm.ReleaseRegister(lhs);
-            rm.ReleaseRegister(rhs);
-            return null;
+            return base.VisitAssignNode(n);
         }
 
         public override MIPSRegister VisitAugAssignNode(AugAssignNode n)
         {
-            MIPSRegister rhs = Gen(n.rhs, false);
-            MIPSRegister lhs = Gen(n.lhs, true);
-            MIPSRegister reg = rm.GetRegister();
-            emit.EmitLoadStore("lw", reg, 0, lhs);
+            var lhs = Gen(n.lhs);
+            var rhs = Gen(n.rhs);
 
             switch (n.op)
             {
                 case "*=":
                     {
-                        emit.Emit("mul", rhs, reg, rhs);
-                    } break;
+                        emit.Emit("mul", lhs, lhs, rhs);
+                    }
+                    break;
                 case "/=":
                     {
-                        emit.Emit("div", rhs, reg, rhs);
+                        emit.Emit("quo", lhs, lhs, rhs);
                     }
                     break;
                 case "%=":
                     {
-                        emit.Emit("rem", rhs, reg, rhs);
-                    } break;
+                        emit.Emit("rem", lhs, lhs, rhs);
+                    }
+                    break;
                 case "+=":
                     {
-                        emit.Emit("add", rhs, reg, rhs);
-                    } break;
+                        emit.Emit("add", lhs, lhs, rhs);
+                    }
+                    break;
                 case "-=":
                     {
-                        emit.Emit("sub", rhs, reg, rhs);
-                    } break;
+                        emit.Emit("sub", lhs, lhs, rhs);
+                    }
+                    break;
                 case "<<=":
                     {
-                        emit.Emit("sllv", rhs, reg, rhs);
-                    } break;
+                        emit.Emit("sllv", lhs, lhs, rhs);
+                    }
+                    break;
                 case ">>=":
                     {
-                        emit.Emit("srav", rhs, reg, rhs);
-                    } break;
+                        emit.Emit("srav", lhs, lhs, rhs);
+                    }
+                    break;
                 case "&=":
                     {
-                        emit.Emit("and", rhs, reg, rhs);
-                    } break;
+                        emit.Emit("and", lhs, lhs, rhs);
+                    }
+                    break;
                 case "^=":
                     {
-                        emit.Emit("xor", rhs, reg, rhs);
-                    } break;
+                        emit.Emit("xor", lhs, lhs, rhs);
+                    }
+                    break;
                 case "|=":
                     {
-                        emit.Emit("or", rhs, reg, rhs);
-                    } break;
-            }
+                        emit.Emit("or", lhs, lhs, rhs);
+                    }
+                    break;
 
-            emit.EmitLoadStore("sw", rhs, 0, lhs); //Mem[lhs+0] op= rhs
+            }
 
             return null;
         }
 
         public override MIPSRegister VisitBinaryExprNode(BinaryExprNode n)
         {
-            MIPSRegister lhs = Gen(n.lhs, false);
-            MIPSRegister rhs = Gen(n.rhs, false);
+            var lhs = Gen(n.lhs); 
+            var rhs = Gen(n.rhs);
+
             switch (n.op)
             {
+                case "*":
+                    {
+                        emit.Emit("mul", lhs, lhs, rhs);
+                    }
+                    break;
+                case "/":
+                    {
+                        emit.Emit("rem", lhs, lhs, rhs);
+                    }
+                    break;
                 case "+":
                     {
                         emit.Emit("add", lhs, lhs, rhs);
@@ -133,19 +126,9 @@ namespace Compiler1
                         emit.Emit("sub", lhs, lhs, rhs);
                     }
                     break;
-                case "*":
+                case ">>":
                     {
-                        emit.Emit("mul", lhs, lhs, rhs);
-                    }
-                    break;
-                case "%":
-                    {
-                        emit.Emit("rem", lhs, lhs, rhs);
-                    }
-                    break;
-                case "/":
-                    {
-                        emit.Emit("div", lhs, lhs, rhs);
+                        emit.Emit("srav", lhs, lhs, rhs);
                     }
                     break;
                 case "<<":
@@ -153,9 +136,24 @@ namespace Compiler1
                         emit.Emit("sllv", lhs, lhs, rhs);
                     }
                     break;
-                case ">>":
+                case "&":
                     {
-                        emit.Emit("sarv", lhs, lhs, rhs);
+                        emit.Emit("and", lhs, lhs, rhs);
+                    }
+                    break;
+                case "|":
+                    {
+                        emit.Emit("or", lhs, lhs, rhs);
+                    }
+                    break;
+                case "^":
+                    {
+                        emit.Emit("xor", lhs, lhs, rhs);
+                    }
+                    break;
+                case "%":
+                    {
+                        emit.Emit("rem", lhs, lhs, rhs);
                     }
                     break;
                 case "<":
@@ -165,187 +163,431 @@ namespace Compiler1
                     break;
                 case ">":
                     {
-                        emit.Emit("slt", lhs, lhs, rhs);
+                        emit.Emit("slt", lhs, rhs, lhs);
                     }
                     break;
                 case "<=":
                     {
-
+                        emit.Emit("slt", lhs, rhs, lhs);
+                        emit.Emit("nor", lhs, lhs, lhs);
                     }
                     break;
                 case ">=":
                     {
-                        emit.Emit("slt", lhs, rhs, lhs); //(lhs >= rhs) <=> (rhs < lhs)
+                        emit.Emit("slt", lhs, lhs, rhs);
+                        emit.Emit("nor", lhs, lhs, lhs);
                     }
                     break;
                 case "==":
                     {
-
+                        emit.Emit("slt", rm.AT, lhs, rhs);
+                        emit.Emit("slt", lhs, rhs, lhs);
+                        emit.Emit("nor", lhs, rm.AT, lhs);
                     }
                     break;
                 case "!=":
                     {
-
-                    }
-                    break;
-                case "&":
-                    {
-
-                    }
-                    break;
-                case "|":
-                    {
-
-                    }
-                    break;
-                case "^":
-                    {
-
+                        emit.Emit("slt", rm.AT, lhs, rhs);
+                        emit.Emit("slt", lhs, rhs, lhs);
+                        emit.Emit("or", lhs, rm.AT, lhs);
                     }
                     break;
                 case "&&":
                     {
-
+                        emit.Emit("and", lhs, lhs, rhs);
                     }
                     break;
                 case "||":
                     {
-
+                        emit.Emit("or", lhs, lhs, rhs);
                     }
                     break;
+                default:
+                    throw new Exception($"Did not match the binop: {n.op} at {n.sourceLoc}");
             }
+
             rm.ReleaseRegister(rhs);
+
             return lhs;
         }
 
         public override MIPSRegister VisitBlockNode(BlockNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitBlockNode(n);
         }
 
-        public override MIPSRegister VisitConstListExprNode(VarListExprNode n)
+        public override MIPSRegister VisitVarListExprNode(VarListExprNode n)
         {
-            throw new NotImplementedException();
+            var reg = GetMIPSRegister();
+            
+
+            return reg;
         }
 
         public override MIPSRegister VisitDeferedNode(DeferedNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitDeferedNode(n);
+        }
+
+        public override MIPSRegister VisitEnumDefNode(EnumDefNode n)
+        {
+            return base.VisitEnumDefNode(n);
         }
 
         public override MIPSRegister VisitFieldAccessNode(FieldAccessNode n)
         {
-            throw new NotImplementedException();
+            var basestruct = Gen(n.basestruct);
+
+            var (ftype, foffset) = n.basestruct.Type.Fields[n.fieldname];
+            emit.EmitLoadStore("lw", basestruct, (short)foffset, basestruct);
+
+            return basestruct;
         }
 
         public override MIPSRegister VisitFloatExprNode(FloatExprNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitFloatExprNode(n);
         }
 
         public override MIPSRegister VisitForNode(ForNode n)
         {
-            throw new NotImplementedException();
+            var testlbl = emit.GetUniqueLabel();
+            var bodylbl = emit.GetUniqueLabel();
+            var incrlbl = emit.GetUniqueLabel();
+            var endlbl = emit.GetUniqueLabel();
+
+            /*
+                Gen(inlist)
+                it <- inlist[1]
+                idx <- 0
+            test:
+                len <- inlist[0]
+                slt tmp, idx, len
+                blez tmp, end
+            body:
+                Gen(body)
+            incr:
+                idx <- idx + 1
+                it <- inlist[idx]
+                j test
+            end:
+             */
+            var list = Gen(n.inList);
+            var it = GetMIPSRegister();
+            var idx = GetMIPSRegister();
+
+            vars = vars.GoDown();
+            vars.PutInScope(n.var, new Either<MIPSRegister, short>(it));
+
+            emit.EmitImmediate("addi", idx.Name, list.Name, 4);
+            emit.EmitLoadStore("lw", it, 0, idx);
+            emit.EmitLabel(testlbl);
+            var tmp = GetMIPSRegister();
+            emit.EmitLoadStore("lw", tmp, 0, list);
+            emit.Emit("slt", tmp, idx, tmp);
+            emit.EmitLabelJump("blez", tmp, endlbl);
+            emit.EmitLabel(bodylbl);
+            Gen(n.body);
+            emit.EmitLabel(incrlbl);
+            emit.EmitImmediate("addi", idx.Name, 4);
+            emit.EmitLoadStore("lw", it, 0, idx);
+            emit.EmitJump("j", testlbl);
+            emit.EmitLabel(endlbl);
+
+            vars = vars.GoUp();
+
+            return null;
         }
 
         public override MIPSRegister VisitFunCallExprNode(FunCallExprNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitFunCallExprNode(n);
         }
 
         public override MIPSRegister VisitFunCallStmtNode(FunCallStmtNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitFunCallStmtNode(n);
         }
 
         public override MIPSRegister VisitFunDefNode(FunDefNode n)
         {
-            throw new NotImplementedException();
+            // @TODO
+            emit.EmitLabel(n.name);
+
+            int n_vars = new VarsInFunDefCounter().Visit(n);
+            /*
+             allocate n_vars*4 bytes on the stack for local variables
+             store s0-s7
+             store sp, fp, ra
+             */
+            short offset = (short)(n_vars * 4);
+            offset -= 4;
+            emit.EmitLoadStore("sw", rm.SP, offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", rm.FP, offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", rm.RA, offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", "$s0", offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", "$s1", offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", "$s2", offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", "$s3", offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", "$s4", offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", "$s5", offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", "$s6", offset, rm.SP);
+            offset -= 4;
+            emit.EmitLoadStore("sw", "$s7", offset, rm.SP);
+            emit.EmitImmediate("addi", rm.SP, rm.SP, offset);
+
+
+            Visit(n.body);
+
+            /*
+             restore s0-s7
+             restore sp, fp, ra
+             */
+            offset = 0;
+            emit.EmitLoadStore("lw", "$s7", offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", "$s6", offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", "$s5", offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", "$s4", offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", "$s3", offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", "$s2", offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", "$s1", offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", "$s0", offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", rm.RA, offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", rm.FP, offset, rm.SP);
+            offset += 4;
+            emit.EmitLoadStore("lw", rm.SP, offset, rm.SP);
+            
+            if (n.rettype == TypeSymbol.VOID_SYMBOL)
+                emit.Emit("ret");
+
+            return null;
         }
 
         public override MIPSRegister VisitGlobalVarDefNode(GlobalVarDefNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitGlobalVarDefNode(n);
         }
 
         public override MIPSRegister VisitIdenExprNode(IdenExprNode n)
         {
-            throw new NotImplementedException();
+            var iden = vars.IsInScope(n.name);
+            if (iden.FirstSet)
+                return iden.First;
+            var reg = GetMIPSRegister();
+            emit.EmitLoadStore("lw", reg, iden.Second, rm.SP);
+            return reg;
         }
 
         public override MIPSRegister VisitIfNode(IfNode n)
         {
-            throw new NotImplementedException();
+            string elselbl = emit.GetUniqueLabel();
+            string iflbl = emit.GetUniqueLabel();
+            string endlbl = emit.GetUniqueLabel();
+
+            /*
+                reg <- test
+                bgtz reg, iflbl
+            elselbl:
+                Gen(elsebody)
+                j endlbl
+            iflbl:
+                Gen(ifbody)
+            end:
+             */
+
+            var reg = Gen(n.test);
+            emit.EmitLabelJump("bgtz", reg, iflbl);
+            emit.EmitLabel(elselbl);
+            vars = vars.GoDown();
+            Gen(n.elsebody);
+            vars = vars.GoUp();
+            emit.EmitJump("j", endlbl);
+            emit.EmitLabel(iflbl);
+            vars = vars.GoDown();
+            Gen(n.ifbody);
+            vars = vars.GoUp();
+            emit.EmitLabel(endlbl);
+            return null;
         }
 
         public override MIPSRegister VisitImplicitFunCallExprNode(ImplicitFunCallExprNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitImplicitFunCallExprNode(n);
         }
 
         public override MIPSRegister VisitImplicitFunCallStmtNode(ImplicitFunCallStmtNode n)
         {
-            throw new NotImplementedException();
+            
+
+            return base.VisitImplicitFunCallStmtNode(n);
         }
 
         public override MIPSRegister VisitIntExprNode(IntExprNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitIntExprNode(n);
         }
 
         public override MIPSRegister VisitLibImportNode(LibImportNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitLibImportNode(n);
         }
 
-        public override MIPSRegister VisitListExprNode(ConstListExprNode n)
+        public override MIPSRegister VisitConstListExprNode(ConstListExprNode n)
         {
-            throw new NotImplementedException();
+            var reg = GetMIPSRegister();
+            emit.EmitMalloc(reg, (short)(n.ListValue.Count + 1));
+            for (int i = 0; i < n.ListValue.Count; i++)
+            {
+                var idx = Gen(n.ListValue[i]);
+                emit.EmitLoadStore("sw", idx, (short)((i + 1) * 4), reg);
+                rm.ReleaseRegister(idx);
+            }
+            return reg;
         }
 
         public override MIPSRegister VisitNewStructNode(NewStructNode n)
         {
-            throw new NotImplementedException();
+            var reg = GetMIPSRegister();
+            emit.EmitMalloc(reg, (short)n.Type.Length);
+            return reg;
         }
 
         public override MIPSRegister VisitNullNode(NullNode n)
         {
-            throw new NotImplementedException();
+            var reg = GetMIPSRegister();
+            emit.Emit("xor", reg, reg, reg);
+            return reg;
         }
 
         public override MIPSRegister VisitProgNode(ProgNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitProgNode(n);
         }
 
         public override MIPSRegister VisitReturnNode(ReturnNode n)
         {
-            throw new NotImplementedException();
+            emit.Emit("ret");
+            return null;
         }
 
         public override MIPSRegister VisitStringExprNode(StringExprNode n)
         {
-            throw new NotImplementedException();
+            //TODO String constants have to go in the data segment
+            return base.VisitStringExprNode(n);
         }
 
         public override MIPSRegister VisitStructDefNode(StructDefNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitStructDefNode(n);
         }
 
         public override MIPSRegister VisitUnaryExprNode(UnaryExprNode n)
         {
-            throw new NotImplementedException();
+            var reg = Gen(n.expr);
+
+            switch (n.op)
+            {
+                case "-":
+                    {
+                        emit.Emit("sub", reg, rm.ZERO, reg);
+                    }
+                    break;
+                case "~":
+                case "!":
+                    {
+                        emit.Emit("nor", reg, reg, reg);
+                    }
+                    break;
+            }
+
+            return reg;
         }
 
         public override MIPSRegister VisitVarDeclNode(VarDeclNode n)
         {
-            throw new NotImplementedException();
+            var varloc = vars.IsInScope(n.name);
+            if(n.rhs != null)
+            {
+                var rhs = Gen(n.rhs);
+                if (varloc.SecondSet)
+                {
+                    // store the value to the stack
+                    emit.EmitLoadStore("sw", rhs, varloc.Second, rm.FP);
+                }
+                else
+                {
+                    // store the value in the register
+                    emit.Emit("add", varloc.First, rhs, rm.ZERO);
+                }
+            }
+
+            return null;
         }
 
         public override MIPSRegister VisitWhileNode(WhileNode n)
         {
-            throw new NotImplementedException();
+            return base.VisitWhileNode(n);
+        }
+
+        private MIPSRegister GetMIPSRegister()
+        {
+            try
+            {
+                return rm.GetRegister();
+            }
+            catch(Exception e)
+            {
+                /*
+                string rmv = "";
+                short address = 0;
+                MIPSRegister found = null;
+
+                foreach (var (key, item) in vars)
+                {
+                    if(item.FirstSet)
+                    {
+                        address = currentOffsets[key];
+                        rmv = key;
+                        found = item.First;
+                        emit.EmitLoadStore("sw", found, address, rm.SP);
+                        break;
+                    }
+                }
+                if(found != null)
+                {
+                    vars.Remove(rmv);
+                    vars.PutInScope(rmv, new Either<MIPSRegister, short>(address));
+                    return found;
+                }
+                */
+
+                /*
+                    Here we want to get a register (t0-t9), put it's value on the stack, release the register and remember that we put the value there ...
+                    but this is probably better done by whoever needs the register, since they can restore the value after more easily
+
+                    the problem should only ever be a real problem in big trees of binops, since vars have a place on the stack to store them,
+                    and only intermediate results need to be saved dynamically
+                 */
+                throw e;
+            }
         }
     }
 }

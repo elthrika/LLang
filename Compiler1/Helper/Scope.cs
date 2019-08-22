@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Compiler1
 {
-    public class Scope<T>// : IDictionary<string, T>
+    public class Scope<T> : IEnumerable<(string, T)> // : IDictionary<string, T>
     {
 
         protected Scope<T> Parent = null;
@@ -72,7 +72,6 @@ namespace Compiler1
             return all;
         }
 
-
         public bool PutInScope(string key, T value)
         {
             if (Values.ContainsKey(key) || value == null)
@@ -123,6 +122,61 @@ namespace Compiler1
             }
             sb.Append("}");
             return sb.ToString();
+        }
+
+        public IEnumerator<(string, T)> GetEnumerator()
+        {
+            return new ScopeEnumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private class ScopeEnumerator : IEnumerator<(string, T)>
+        {
+            public (string, T) Current { get; private set; }
+
+            object IEnumerator.Current => Current;
+
+            Scope<T> Scope;
+            readonly Scope<T> orig;
+            int keyidx = 0;
+
+            internal ScopeEnumerator(Scope<T> scope)
+            {
+                Scope = scope;
+                orig = scope;
+            }
+
+            public void Dispose()
+            {
+                
+            }
+
+            public bool MoveNext()
+            {
+                if(keyidx > Scope.Values.Count && Scope.Parent == null)
+                {
+                    return false;
+                }
+                else if(keyidx > Scope.Values.Count)
+                {
+                    Scope = Scope.GoUp();
+                    keyidx = 0;
+                    return MoveNext();
+                }
+                string cur = Scope.Values.Keys.ElementAt(keyidx);
+                Current = (cur, Scope.IsInScope(cur));
+                return true;
+            }
+
+            public void Reset()
+            {
+                keyidx = 0;
+                Scope = orig;
+            }
         }
 
         //public bool ContainsKey(string key)

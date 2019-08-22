@@ -392,21 +392,21 @@ namespace Compiler1
         Dictionary<string, LData> Value;
         string typename;
 
-        internal LStruct(Dictionary<string, TypeSymbol> fields, string typename, bool isnull) : base(isnull)//, Dictionary<string, LData> defaultvalues)
+        internal LStruct(Dictionary<string, (TypeSymbol, int)> fields, string typename, bool isnull) : base(isnull)//, Dictionary<string, LData> defaultvalues)
         {
             Value = new Dictionary<string, LData>();
             if (fields != null)
             {
                 foreach (var f in fields.Keys)
                 {
-                    Value[f] = LDataMaker.GetDataFor(fields[f]);
+                    Value[f] = LDataMaker.GetDataFor(fields[f].Item1);
                 }
             }
             this.typename = typename;
         }
 
-        internal LStruct(Dictionary<string, TypeSymbol> fields, TypeSymbol type) : this(fields, type.Name, false) { }
-        internal LStruct(Dictionary<string, TypeSymbol> fields, string type) : this(fields, type, false) { }
+        internal LStruct(Dictionary<string, (TypeSymbol, int)> fields, TypeSymbol type) : this(fields, type.Name, false) { }
+        internal LStruct(Dictionary<string, (TypeSymbol, int)> fields, string type) : this(fields, type, false) { }
 
 
         public override dynamic GetValue(string fname = null)

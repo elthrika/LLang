@@ -163,7 +163,7 @@ namespace Compiler1
             throw new NotImplementedException();
         }
 
-        public override LLVMRegister VisitConstListExprNode(VarListExprNode n)
+        public override LLVMRegister VisitVarListExprNode(VarListExprNode n)
         {
             throw new NotImplementedException();
         }
@@ -238,7 +238,7 @@ namespace Compiler1
             throw new NotImplementedException();
         }
 
-        public override LLVMRegister VisitListExprNode(ConstListExprNode n)
+        public override LLVMRegister VisitConstListExprNode(ConstListExprNode n)
         {
             throw new NotImplementedException();
         }

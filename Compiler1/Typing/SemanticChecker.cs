@@ -145,7 +145,7 @@ namespace Compiler1
                 return null;
             }
 
-            public override object VisitConstListExprNode(VarListExprNode n)
+            public override object VisitVarListExprNode(VarListExprNode n)
             {
                 Visit(n.lower); Visit(n.upper); Visit(n.stepsize);
                 semanticChecker.CheckAndReport(n.lower.Type.Match(n.upper.Type), n.sourceLoc, "Type mismatch");
@@ -362,7 +362,7 @@ namespace Compiler1
                 semanticChecker.CheckAndReport(n.test.Type.Equals(TypeSymbol.BOOL_SYMBOL), n.sourceLoc, "Test not typeof bool");
 
                 varTypes = varTypes.GoDown();
-                Visit(n.body);
+                Visit(n.ifbody);
                 varTypes = varTypes.GoUp();
 
                 varTypes = varTypes.GoDown();
@@ -372,7 +372,7 @@ namespace Compiler1
                 return null;
             }
 
-            public override object VisitListExprNode(ConstListExprNode n)
+            public override object VisitConstListExprNode(ConstListExprNode n)
             {
                 if(n.Type.ArrayType.Kind == TypeSymbol.TypeKind.FUNCTION)
                 {
@@ -542,7 +542,7 @@ namespace Compiler1
 
             public override bool VisitIfNode(IfNode n)
             {
-                bool result = Visit(n.body);
+                bool result = Visit(n.ifbody);
 
                 if (n.elsebody != null)
                     result &= Visit(n.elsebody);

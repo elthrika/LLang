@@ -51,8 +51,10 @@
   <ItemGroup>
     <Compile Include="AST\ASTBuilder.cs" />
     <Compile Include="AST\ASTNode.cs" />
+    <Compile Include="Helper\Either.cs" />
     <Compile Include="CodeGen\LLVM\LLVMRegister.cs" />
     <Compile Include="CodeGen\MIPS\MIPSCodeGenerator.cs" />
+    <Compile Include="CodeGen\RegistersNeeded.cs" />
     <Compile Include="Helper\AstPrinter.cs" />
     <Compile Include="AST\BaseASTVisitor.cs" />
     <Compile Include="CodeGen\CodeEmitter.cs" />
@@ -78,6 +80,7 @@
     <Compile Include="Typing\SemanticChecker.cs" />
     <Compile Include="Typing\TypeMaker.cs" />
     <Compile Include="Typing\TypeSymbol.cs" />
+    <Compile Include="CodeGen\VarsInFunDefCounter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -60,7 +60,7 @@ namespace Compiler1
             return default(T);
         }
 
-        public virtual T VisitConstListExprNode(VarListExprNode n)
+        public virtual T VisitVarListExprNode(VarListExprNode n)
         {
 
             T a = n.lower.Accept(this);
@@ -155,7 +155,7 @@ namespace Compiler1
         {
 
             T a = n.test.Accept(this);
-            T b = n.body.Accept(this);
+            T b = n.ifbody.Accept(this);
             if (n.elsebody != null)
             {
                 T c = n.elsebody.Accept(this);
@@ -189,7 +189,7 @@ namespace Compiler1
             return default(T);
         }
 
-        public virtual T VisitListExprNode(ConstListExprNode n)
+        public virtual T VisitConstListExprNode(ConstListExprNode n)
         {
 
             for(int i = 0; i < n.ListValue.Count; i++)

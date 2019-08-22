@@ -9,18 +9,6 @@ namespace Compiler1
     class MIPSRegisterManager
     {
 
-        string[] unmutRegisters =
-        {
-            "$zero",
-            "$at",
-            "$k0",
-            "$k1",
-            "$gp",
-            "$sp",
-            "$fp",
-            "$ra"
-        };
-
         string[] gpRegisters =
         {
             "$v0",
@@ -49,7 +37,22 @@ namespace Compiler1
             "$t9"
         };
 
+        string[] fpRegisters =
+        {
+            ""
+        };
+
         List<MIPSRegister> availableRegisters;
+
+        internal readonly MIPSRegister ZERO = new MIPSRegister("$zero");
+        internal readonly MIPSRegister SP   = new MIPSRegister("$sp");
+        internal readonly MIPSRegister FP   = new MIPSRegister("$fp");
+        internal readonly MIPSRegister GP   = new MIPSRegister("$gp");
+        internal readonly MIPSRegister RA   = new MIPSRegister("$ra");
+        internal readonly MIPSRegister AT   = new MIPSRegister("$at");
+        //internal readonly MIPSRegister K0   = new MIPSRegister("$k0");
+        //internal readonly MIPSRegister K1   = new MIPSRegister("$k1");
+
 
         public MIPSRegisterManager()
         {
@@ -72,6 +75,15 @@ namespace Compiler1
             MIPSRegister reg = availableRegisters[0];
             availableRegisters.RemoveAt(0);
             return reg;
+        }
+
+        public MIPSRegister GetRegister(string specific)
+        {
+            foreach (var reg in availableRegisters)
+            {
+                if (reg.Name == specific) return reg;
+            }
+            throw new Exception($"Register '{specific}' Not Available");
         }
 
         public void ReleaseRegister(MIPSRegister reg)

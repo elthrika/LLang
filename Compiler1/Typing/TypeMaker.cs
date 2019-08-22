@@ -206,7 +206,7 @@ namespace Compiler1
             return null;
         }
 
-        public override object VisitConstListExprNode(VarListExprNode n)
+        public override object VisitVarListExprNode(VarListExprNode n)
         {
             Visit(n.lower);
             Visit(n.upper);
@@ -219,9 +219,9 @@ namespace Compiler1
         {
             Visit(n.basestruct);
             if (n.basestruct.Type.Kind == TypeSymbol.TypeKind.POINTER)
-                n.Type = MakeTypeSymbolForString(n.basestruct.Type.Name).Fields[n.fieldname];
+                n.Type = MakeTypeSymbolForString(n.basestruct.Type.Name).Fields[n.fieldname].Item1;
             else if (n.basestruct.Type.Kind == TypeSymbol.TypeKind.STRUCT)
-                n.Type = n.basestruct.Type.Fields[n.fieldname];
+                n.Type = n.basestruct.Type.Fields[n.fieldname].Item1;
             else if (n.basestruct.Type.Kind == TypeSymbol.TypeKind.ENUM)
                 n.Type = TypeSymbol.INT_SYMBOL;
             return null;
@@ -377,7 +377,7 @@ namespace Compiler1
             Visit(n.test);
 
             varTypes = varTypes.GoDown();
-            Visit(n.body);
+            Visit(n.ifbody);
             varTypes = varTypes.GoUp();
 
             varTypes = varTypes.GoDown();
@@ -387,7 +387,7 @@ namespace Compiler1
             return null;
         }
 
-        public override object VisitListExprNode(ConstListExprNode n)
+        public override object VisitConstListExprNode(ConstListExprNode n)
         {
             if (n.ListValue.Count > 0)
             {
@@ -439,38 +439,38 @@ namespace Compiler1
             foreach (Expression e in n.defaultValues)
                 Visit(e);
 
-            Dictionary<string, TypeSymbol> fields = new Dictionary<string, TypeSymbol>();
-            List<int> offsets = new List<int>();
+            var fields = new Dictionary<string, (TypeSymbol, int)>();
 
             int c_offset = 0;
             for(int i = 0; i < n.Type.Fields.Count; i++)
             {
-                KeyValuePair<string, TypeSymbol> m = n.Type.Fields.ElementAt(i);
-                TypeSymbol curts = m.Value; string name = m.Key;
+                KeyValuePair<string, (TypeSymbol, int)> m = n.Type.Fields.ElementAt(i);
+                TypeSymbol curts = m.Value.Item1;
 
+                string name = m.Key;
 
+                TypeSymbol toadd = null;
                 if (curts.Name == n.name || MakeTypeSymbolForString(curts.Name).Kind == TypeSymbol.TypeKind.STRUCT) //pointer to (own) struct
                 {
-                    fields.Add(name, new TypeSymbol(curts.Name, TypeSymbol.TypeKind.POINTER, 8));
+                    toadd = TypeSymbol.POINTER_SYMBOL(curts); //new TypeSymbol(curts.Name, TypeSymbol.TypeKind.POINTER, 8);
                 }
                 else
                 {
-                    fields.Add(name, MakeTypeSymbolForString(curts.Name));
+                    toadd = MakeTypeSymbolForString(curts.Name);
                 }
-
-                int len = fields[name].Length;
+                int len = toadd.Length;
 
                 if (c_offset > 0 && c_offset % len != 0)
                 {
                     c_offset = ((c_offset / len) + 1) * len; // get next biggest multiple of Size -> alignment
                 }
 
-                offsets.Add(c_offset);
+                fields.Add(name, (toadd, c_offset));
 
                 c_offset += len;
             }
 
-            TypeSymbol ts = TypeSymbol.STRUCT_SYMBOL(n.name, c_offset, fields, offsets);
+            TypeSymbol ts = TypeSymbol.STRUCT_SYMBOL(n.name, c_offset, fields);
             n.Type = ts;
 
             KnownTypes.PutInScope(n.name, ts);
